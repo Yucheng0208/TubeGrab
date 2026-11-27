@@ -45,6 +45,12 @@ struct AboutView: View {
             AppLogo(size: 110)
             Text(AppInfo.name).font(.app(.largeTitle))
             Text("\(t("about.version")) \(AppInfo.version)").font(.app(.callout)).foregroundStyle(.secondary)
+            Button { NSWorkspace.shared.open(URL(string: AppInfo.repoURL + "/blob/main/LICENSE")!) } label: {
+                Text("Copyright (c) 2026 Yu-Cheng Chang  ·  \(t("about.license"))")
+                    .font(.app(.caption)).foregroundStyle(.secondary).underline()
+            }
+            .buttonStyle(.plain)
+            .help(AppInfo.repoURL + "/blob/main/LICENSE")
             Text(t("about.desc")).font(.app(.body)).multilineTextAlignment(.center)
                 .foregroundStyle(.secondary).frame(maxWidth: 520)
         }

@@ -728,7 +728,7 @@ struct PlaylistSection: View {
                         Text(name).font(.app(.title2))
                         HStack(spacing: 6) {
                             Pill(text: "\(tracks.count) \(t("pl.tracks"))", icon: "music.note")
-                            Pill(text: "\(tracks.filter(\.selected).count) ✓")
+                            Pill(text: String(format: t("pl.selectedCount"), tracks.filter(\.selected).count), icon: "checkmark.square")
                         }
                         Label(t("pl.rule"), systemImage: "checkmark.seal.fill")
                             .font(.app(.caption)).foregroundStyle(.secondary)

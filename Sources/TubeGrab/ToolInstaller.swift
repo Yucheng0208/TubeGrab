@@ -50,10 +50,10 @@ final class ToolInstaller {
             redetect()
             progress = 1
             if !toolsReady { throw ToolError(message: t("set.missing")) }
-            append("✅ " + t("set.found"))
+            append(t("set.found"))
         } catch {
             lastError = error.localizedDescription
-            append("❌ " + error.localizedDescription)
+            append(t("status.failed") + ": " + error.localizedDescription)
         }
     }
 

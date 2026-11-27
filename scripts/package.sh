@@ -26,6 +26,7 @@ STAGE="$(mktemp -d)/TubeGrab"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
+cp LICENSE "$STAGE/LICENSE.txt"
 cat > "$STAGE/請先閱讀 Read Me.txt" <<'TXT'
 TubeGrab — macOS 影片／音樂下載工具（教學範例）
 

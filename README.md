@@ -1,138 +1,69 @@
-# TubeGrab — macOS 影片／音樂下載工具（SwiftUI 範例專案）
+# TubeGrab
 
-> [!WARNING]
-> **免責聲明：本專案僅供教學與程式範例用途。**
-> 請只下載你本人擁有著作權、已取得授權，或明確允許下載的內容（例如創用 CC、公有領域、你自己上傳的影片）。
-> 下載 YouTube、Spotify、Apple Music、KKBOX 等平台的內容可能違反其服務條款及當地著作權法，使用者須自行承擔一切責任。
-> 作者不提供任何保證，也不鼓勵任何侵權行為。本程式不會繞過任何 DRM（Spotify / Apple Music / KKBOX 只讀取「歌名與歌手」清單，再到 YouTube 搜尋公開影片）。
+**繁體中文** | [简体中文](README.zh-Hans.md) | [English](README.en.md) | [日本語](README.ja.md) | [한국어](README.ko.md)
 
-這是一個用 **Swift + SwiftUI** 寫的 macOS App，介面盡量簡單：**貼上網址（或打歌名）→ 選一選 → 下載**。
-底層使用開源工具 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 與 [ffmpeg](https://ffmpeg.org/)。
+TubeGrab 是一個用 Swift 與 SwiftUI 製作的 macOS 影片與音樂下載工具。介面設計得很簡單：貼上網址或輸入歌名，選一選就能下載。這是一個教學範例專案，示範如何把 yt-dlp、ffmpeg 等開源工具包裝成好用的 Mac App。
 
----
+> **免責聲明**
+>
+> 本專案僅供教學與程式範例用途。請只下載你本人擁有著作權、已取得授權，或明確允許下載的內容（例如創用 CC、公有領域、你自己上傳的影片）。下載 YouTube、Spotify、Apple Music、KKBOX 等平台的內容可能違反其服務條款及當地著作權法。
+>
+> 本程式依「現狀」提供，不提供任何保證；使用本程式所產生的一切後果由使用者自行承擔，作者不負任何責任。本程式不會繞過任何 DRM：Spotify、Apple Music、KKBOX 只讀取「歌名與歌手」清單，再到 YouTube 搜尋公開影片。
 
-## 功能一覽
+## 目錄
+
+- [功能總覽](#功能總覽)
+- [下載與安裝](#下載與安裝)
+- [第一次使用](#第一次使用)
+- [使用方式](#使用方式)
+- [常見問題](#常見問題)
+- [給開發者](#給開發者)
+- [使用的開源專案](#使用的開源專案)
+- [授權](#授權)
+
+## 功能總覽
 
 | 功能 | 說明 |
 |---|---|
-| 影片 / 音樂 | 一鍵切換。影片：MP4、MOV、MKV、WEBM；音樂：MP3、M4A、AAC、FLAC、ALAC、WAV、OPUS、OGG |
-| 品質選擇 | 影片：最佳 / 4K / 1440p / 1080p / 720p / 480p / 360p；音樂：最佳 / 320k / 256k / 192k / 128k |
-| 打歌名搜尋 | 不是網址時自動到 YouTube 搜尋，標示「官方」「推薦」，可「選這首」或「直接下載音樂」 |
-| 自動命名 + 可修改 | 檔名、歌名、歌手、專輯、專輯演出者、年份、類型預設用 YouTube 提供的資訊，全部可以改，並寫入檔案標籤 |
-| 封面 | 自動把縮圖裁成正方形嵌入成專輯封面 |
-| 預覽 + 修剪 | 內建播放器預覽，可設定開始／結束時間只下載其中一段 |
-| 套用後預覽 | 「原始 / 套用設定後」切換比較：依所選格式、品質、音訊工具、畫質提升、比例實際產生一小段（修剪範圍最多 30 秒，否則 20 秒）；改設定會自動更新 |
-| 畫面比例 | 原始 / 16:9 / 9:16 / 1:1 / 4:3 / 4:5 / 21:9；空白處可選黑邊、白邊、模糊背景、霧化封面，或裁切填滿（會提醒） |
-| 網路歌曲資訊 | 自動用 Apple Music 目錄查詢歌名、歌手、專輯、年份、類型、曲序供參考，按「套用」才會填入 |
-| 下載清單 | 整體進度環 + 每項漸層進度條（百分比、目前階段、已下載大小、速度、剩餘時間），可取消、重試、移除、清除已完成 |
-| 播放清單批次下載 | YouTube 播放清單、Spotify / Apple Music / KKBOX 歌單或專輯，列出所有歌曲後勾選、一次自動下載 |
-| 貼上歌單文字 | 從任何平台（KKBOX、LINE MUSIC、Excel…）複製「每行一首」的清單也能批次下載 |
-| 選歌規則 | 優先選唱片公司 / 官方頻道（`- Topic`、VEVO、唱片公司、歌手官方頻道），找不到才選觀看次數最高的 |
-| 歌詞 | 音樂可一併下載歌詞（LRCLIB）：存成 .lrc 同步歌詞檔、寫入歌曲檔案（Apple Music 可顯示），可自動轉換繁簡；修剪時同步歌詞的時間會跟著調整 |
-| 音訊工具 | 左/右聲道、左右互換、單聲道、左右平衡、**去除人聲（卡拉 OK）**、音量、音量標準化、升降 Key、變速、淡入淡出 |
-| 畫質提升 | 360p / 720p / 1080p 放大為 1080p / 1440p / 4K（降噪 + Lanczos + 銳化，使用 Mac 硬體 HEVC 編碼） |
-| 五種語言 | 繁體中文、简体中文、English、日本語、한국어（設定中即時切換） |
-| 外觀 | 深色 / 淺色 / 跟隨系統；7 種主題配色；標準 / 圓體 / 明體 / 等寬字型；4 種字體大小；粗體字 |
-| 自動安裝工具 | 找不到 yt-dlp / ffmpeg 時，一鍵（或在設定按「自動偵測」）自動下載安裝 |
+| 下載影片或音樂 | 支援 YouTube 與 yt-dlp 支援的上千個網站。影片：MP4、MOV、MKV、WEBM（360p 到 4K）；音樂：MP3、M4A、AAC、FLAC、ALAC、WAV、OPUS、OGG |
+| 搜尋歌曲 | 用歌名、歌手，或只記得的一句歌詞找歌；結果標示「官方」「推薦」，並可先試聽 |
+| 歌單批次下載 | YouTube 播放清單、Spotify、Apple Music、KKBOX 歌單或專輯，或匯入 CSV、TXT、XLSX 檔案 |
+| 自動選最佳版本 | 優先選唱片公司或官方頻道的版本，找不到才選觀看次數最高的 |
+| 歌曲資訊 | 自動帶入檔名、歌名、歌手、專輯、年份、類型，全部可修改；並可參考網路上的歌曲資訊 |
+| 歌詞 | 下載同步歌詞（.lrc）、寫入歌曲檔案、匯出完整歌詞、繁簡轉換 |
+| 預覽與修剪 | 預覽影片、只下載其中一段，並可預覽「套用設定後」的實際效果 |
+| 音訊工具 | 左右聲道、左右平衡、去除人聲、音量、音量標準化、升降 Key、變速、淡入淡出 |
+| 影片處理 | 畫質提升（放大到 1080p 至 4K）、改變畫面比例（黑邊、白邊、模糊背景、霧化封面、裁切） |
+| 找譜 | 一鍵搜尋吉他譜、和弦、五線譜、簡譜、鋼琴譜 |
+| 下載清單 | 整體進度與每項進度百分比、速度、剩餘時間；可取消、重試、移除、直接打開檔案 |
+| 介面 | 繁體中文、简体中文、English、日本語、한국어；深色、淺色、跟隨系統；自訂主題色與漸層；字型、字體大小、按鈕大小、介面比例 |
+| 任何視窗大小 | 視窗可任意縮放或全螢幕，文字與按鈕會跟著調整；視窗太窄時自動改成直排版面 |
+| 自動安裝工具 | 找不到 yt-dlp 或 ffmpeg 時一鍵自動安裝 |
+| 檢查更新 | 自動檢查 GitHub 上是否有新版本 |
 
----
+## 下載與安裝
 
-## 需要的套件 / 環境
-
-| 項目 | 用途 | 必要？ |
-|---|---|---|
-| macOS 14 Sonoma 以上 | 執行 App（使用 SwiftUI `@Observable`） | 必要 |
-| Xcode 15+ 或 Command Line Tools（Swift 5.10+） | 編譯 | 必要 |
-| **yt-dlp** | 解析與下載影片 | 必要 |
-| **ffmpeg**（含 ffprobe） | 合併影音、轉檔、修剪、封面、音訊工具、畫質提升 | 必要 |
-| **deno** | 新版 yt-dlp 需要 JavaScript 執行環境才能完整支援 YouTube | 建議 |
-| Spotify API Client ID / Secret | 讀取超過約 100 首的 Spotify 歌單 | 選填 |
-| KKBOX Open API Client ID / Secret | 讀取 KKBOX 歌單 / 專輯（[developer.kkbox.com](https://developer.kkbox.com) 免費申請） | 選填 |
-
-Swift 程式本身**沒有任何第三方 Swift 套件**，只用到 Apple 內建框架：SwiftUI、AVKit、AVFoundation、AppKit、Foundation。
-
-### 安裝外部工具（擇一）
-
-**方法 A：讓 App 自動安裝（最簡單）**
-第一次打開 App，若找不到工具，畫面上方會出現「一鍵安裝」。也可以到「設定 → 外部工具 → 自動偵測」。
-- 有 Homebrew：自動執行 `brew install yt-dlp ffmpeg deno`
-- 沒有 Homebrew：從官方發佈頁下載執行檔到 `~/Library/Application Support/TubeGrab/bin`
-  - yt-dlp：github.com/yt-dlp/yt-dlp releases
-  - ffmpeg / ffprobe：ffmpeg.martin-riedl.de（ffmpeg.org 下載頁所列的 macOS 建置）
-  - deno：github.com/denoland/deno releases
-
-**方法 B：自己用 Homebrew 安裝**
-
-```bash
-brew install yt-dlp ffmpeg deno
-```
-
----
-
-## 下載與安裝（給使用者）
-
-到 GitHub 的 **Releases** 下載 `TubeGrab-版本-macOS.dmg`（或 `.zip`）：
-
-1. 打開 `.dmg`，把 **TubeGrab** 拖到 **Applications（應用程式）**。
-2. 第一次打開：在「應用程式」資料夾對 TubeGrab **按右鍵 →「打開」→ 再按「打開」**。
-   本程式沒有經過 Apple 公證（需要付費的開發者帳號），所以 macOS 第一次會詢問，之後就能直接雙擊。
-3. 若出現「已損毀，無法打開」，打開「終端機」執行：
+1. 到本專案的 [Releases](../../releases) 頁面下載 `TubeGrab-版本-macOS.dmg`（或 `.zip`）。
+2. 打開 `.dmg`，把 **TubeGrab** 拖到 **Applications（應用程式）** 資料夾。
+3. 第一次打開：在「應用程式」資料夾對 TubeGrab **按右鍵，選「打開」，再按一次「打開」**。
+   本程式沒有經過 Apple 公證，所以 macOS 第一次會詢問，之後就能直接雙擊開啟。
+4. 如果出現「已損毀，無法打開」，請打開「終端機」執行：
 
    ```bash
    xattr -dr com.apple.quarantine /Applications/TubeGrab.app
    ```
 
-4. 打開後若看到「需要安裝下載工具」，按「一鍵安裝」。
+**系統需求**：macOS 14 Sonoma 以上，Apple Silicon 與 Intel Mac 皆可使用。
 
-需求：macOS 14 Sonoma 以上，Apple Silicon 與 Intel Mac 皆可。
+**更新版本**：下載新版 `.dmg` 後，把 TubeGrab 拖到「應用程式」取代舊版即可，設定會保留。
 
-## 打包發佈（給開發者）
+## 第一次使用
 
-```bash
-./scripts/package.sh 1.0
-```
-
-會在 `dist/` 產生（已加入 `.gitignore`，不會被提交）：
-
-| 檔案 | 說明 |
-|---|---|
-| `TubeGrab-1.0-macOS.dmg` | 安裝映像：拖到「應用程式」即可，內附安裝說明 |
-| `TubeGrab-1.0-macOS.zip` | 壓縮檔版本 |
-| `SHA256SUMS.txt` | 檔案校驗碼 |
-
-App 同時支援 Apple Silicon 與 Intel（universal），最低 macOS 14。把 `.dmg` 與 `.zip` 上傳到 GitHub Releases 即可。
-
-## 編譯與執行
-
-直接執行（開發用）：
-
-```bash
-swift run
-```
-
-打包成可以雙擊的 `TubeGrab.app`（輸出在 `build/`，可拖到「應用程式」資料夾）：
-
-```bash
-./scripts/build-app.sh
-```
-
-更換 App 圖示：把新的圖片存成 `assets/logo-source.png`（任何背景都可以，程式會自動找出圓角方塊並裁掉背景與光暈），再執行：
-
-```bash
-swift scripts/make-icon.swift
-```
-
-會產生 `assets/AppIcon.png` 與 `assets/AppIcon.icns`，下次 `./scripts/build-app.sh` 時自動放進 App。
-
-用 Xcode 開啟：
-
-```bash
-open Package.swift
-```
-
-> 第一次打開自己編譯的 App 若出現「無法驗證開發者」，請在 Finder 對 App 按右鍵 →「打開」。
-
----
+1. 打開 TubeGrab。若畫面上方出現「需要安裝下載工具」，按 **一鍵安裝**，等待 1 到 3 分鐘。
+   - 有 Homebrew 的電腦會自動執行 `brew install yt-dlp ffmpeg deno`。
+   - 沒有 Homebrew 時，會從官方發佈頁下載執行檔到 `~/Library/Application Support/TubeGrab/bin`。
+2. 到 **外觀** 選擇喜歡的顯示模式、配色與字體大小。
+3. 到 **偏好設定** 選擇介面語言與下載儲存位置（預設為「下載項目」資料夾）。
 
 ## 使用方式
 
@@ -141,142 +72,264 @@ open Package.swift
 | 群組 | 頁面 | 用途 |
 |---|---|---|
 | 下載 | 新增下載 | 貼上單一影片網址，設定格式、預覽、修剪、修改資訊後下載 |
-| | 搜尋歌曲 | 輸入歌名或歌手，到 YouTube 找最適合的版本 |
-| | 歌單批次下載 | YouTube 播放清單、Spotify、Apple Music、KKBOX 或文字歌單，一次下載 |
-| | 下載清單 | 查看進度、取消、重試、移除、打開檔案 |
-| 設定 | 外觀 | 深色 / 淺色 / 系統、主題配色、字型、字體大小、粗體 |
-| | 偏好設定 | 介面語言、儲存位置、同時下載數、外部工具、API 金鑰 |
-| 支援 | 說明 | 各功能的操作步驟（五種語言，可搜尋，並可直接跳到該功能） |
-| | 關於 | 版本、使用聲明、開源致謝、GitHub 連結 |
+| | 搜尋歌曲 | 用歌名或歌手找歌 |
+| | 用歌詞找歌 | 只記得一句歌詞時用 |
+| | 歌單批次下載 | 一次下載整份歌單 |
+| | 下載清單 | 查看進度與完成的檔案 |
+| 設定 | 外觀 | 顯示模式、配色、字型、大小 |
+| | 偏好設定 | 語言、儲存位置、外部工具、YouTube 登入、API 金鑰 |
+| 支援 | 說明 | 每個功能的操作步驟（可搜尋） |
+| | 關於 | 版本、檢查更新、回報問題、免責聲明 |
 
-在任何輸入框貼上的內容會自動送到對的頁面：單一影片 → 新增下載、歌單網址 → 歌單批次下載、文字 → 搜尋歌曲。
-切換到別的頁面時，「新增下載」「搜尋歌曲」「歌單批次下載」的內容會保留。
+在任何輸入框貼上內容時，App 會自動送到對的頁面：單一影片到「新增下載」，歌單網址到「歌單批次下載」，文字到「搜尋歌曲」。
 
-### 基本流程
+### 新增下載（單一影片或音樂）
 
-1. **貼上網址**（YouTube 影片、YouTube 播放清單、Spotify / Apple Music / KKBOX 歌單或專輯），或直接**打歌名 / 歌手**
-2. 按「讀取」（打字時按鈕會變成「搜尋」）
-3. 選「影片」或「音樂」、格式、品質；需要的話調整歌曲資訊、修剪片段、音訊工具、畫質提升
-4. 按「加入下載」，到「下載清單」看進度
+1. 在 YouTube 等網站複製影片網址，到 **新增下載** 按 **貼上**（或直接貼進輸入框按 **讀取**）。網址不用加 `https://`。
+2. 選 **影片** 或 **音樂**。
+3. 選格式與品質：
+   - 影片：MP4、MOV、MKV、WEBM；品質從 360p 到 4K。要在 Mac 或 iPhone 播放建議選 MP4。
+   - 音樂：MP3、M4A、FLAC、ALAC、WAV 等；一般聽歌選 MP3 320k 即可。
+4. 視需要調整下方的音訊工具、修剪、歌曲資訊。
+5. 按 **加入下載**，到「下載清單」看進度。
 
-### 批次下載歌單
+如果輸入的是文字而不是網址，輸入框下方會出現 **用歌名／歌手** 與 **用歌詞** 兩個按鈕，按下就會開始搜尋。
 
-| 來源 | 怎麼做 |
-|---|---|
-| YouTube 播放清單 | 貼 `youtube.com/playlist?list=…` 網址。`watch?v=…&list=RD…` 這種 YouTube 自動合輯會當成單一影片 |
-| Spotify | 貼公開歌單 / 專輯網址。不填 API 金鑰時最多讀取約 50～100 首 |
-| Apple Music | 貼公開歌單 / 專輯網址（讀取頁面上公開顯示的歌曲） |
-| KKBOX | 在設定填入 KKBOX Open API 金鑰後貼網址；或使用下面的「貼上歌單文字」 |
-| 任何平台 | 按網址列旁的「貼上歌單文字」，或直接複製多行清單後按「貼上」 |
+### 預覽、修剪與套用後預覽
 
-「貼上歌單文字」支援的格式（每行一首）：
+- 讀取影片後會自動載入預覽播放器。
+- 打開 **只下載其中一段**，拖動「開始」「結束」，或在播放時按 **把目前位置設為開始／結束**。
+- 播放器上方切到 **套用設定後**，App 會用和正式下載相同的處理方式產生一小段（修剪範圍最多 30 秒，否則從目前位置起 20 秒），聽得到、看得到格式、音訊工具、畫質提升與畫面比例的實際效果。勾選 **自動更新預覽** 時，改設定後會自動重算。
+- 預覽下方會顯示「將儲存為」的檔名與歌曲資訊。
 
-```text
-周杰倫 - 晴天
-告白氣球 / 周杰倫
-1. 五月天 – 倔強 4:22
-擁抱	五月天          ← 從 Excel / Numbers 複製（Tab 分隔）
-```
+### 修改檔名、歌曲資訊與歌詞預覽
 
-### 平台 Logo（選用）
+- 檔名、歌名、歌手、專輯、專輯演出者、年份、類型預設使用 YouTube 提供的資訊，都可以直接修改，會寫入檔案標籤。
+- **網路上的歌曲資訊**：自動到 Apple Music 目錄查詢，列出候選結果（含封面、專輯、年份、曲序），按 **套用** 才會填入。改錯了可按 **還原成 YouTube 提供的資訊**。
+- **歌詞**：按 **找歌詞** 預覽，可切換同步歌詞或純文字，並可 **複製歌詞**、**匯出 .lrc**、**匯出完整歌詞 .txt**。
+- **找譜**：開啟吉他譜／和弦（Ultimate Guitar、91譜）、五線譜（MuseScore）、簡譜、鋼琴譜的搜尋結果。只開啟網頁，不會下載樂譜。
 
-網址列上方的 YouTube / Spotify / Apple Music / KKBOX 標籤預設使用系統圖示。若想顯示官方 Logo，
-請自行到各平台的品牌資源頁下載（並遵守其商標使用規範），存成以下檔名放在專案的 `logos/` 資料夾，
-再執行 `./scripts/build-app.sh`：
+### 搜尋歌曲與用歌詞找歌
 
-```text
-logos/kkbox.png   logos/spotify.png   logos/youtube.png   logos/applemusic.png
-```
+1. 到 **搜尋歌曲** 輸入「歌手 歌名」，例如「周杰倫 晴天」；或到 **用歌詞找歌** 輸入記得的一兩句歌詞，例如「故事的小黃花 從出生那年就飄著」。
+2. 結果中標示「官方」的是唱片公司或歌手頻道，標示「推薦」的是程式建議的最佳版本。
+3. 按縮圖上的播放鍵可以先試聽，下方會出現播放列。
+4. 按 **選這首** 進入「新增下載」設定格式與預覽，或按 **直接下載音樂** 用預設值馬上下載。
 
-本專案不附帶任何平台 Logo。
+### 歌單批次下載
 
-### 自動選歌規則（播放清單與搜尋推薦）
+1. 到 **歌單批次下載**，貼上歌單或專輯網址並按 **讀取**：
 
-1. 先排除翻唱、伴奏、Remix、Live 反應影片、長度差太多的合輯等
-2. 依官方程度計分：YouTube 依唱片公司發行資料產生的 `歌手 - Topic` 頻道、VEVO、知名唱片公司頻道、歌手本人頻道、已驗證頻道、長度吻合
-3. 有達到官方門檻的 → 選分數最高（同分選觀看次數高的）
-4. 沒有官方來源 → 選觀看次數最高的
+   | 來源 | 說明 |
+   |---|---|
+   | YouTube 播放清單 | `youtube.com/playlist?list=...`；`watch?v=...&list=RD...` 這類自動合輯會當成單一影片 |
+   | Spotify | 公開歌單或專輯；沒填 API 金鑰時最多約 50 到 100 首 |
+   | Apple Music | 公開歌單或專輯 |
+   | KKBOX | 需在「偏好設定」填入 KKBOX Open API 金鑰（免費申請），或改用貼上歌單文字 |
 
-### 音訊工具小提醒
+2. 也可以按 **貼上歌單文字**，每行一首，例如：
 
-- **去除人聲**用「左右聲道相減」消除正中央的人聲，並保留低音。適合錄音室版本；現場版、單聲道或人聲不在正中央的歌曲效果有限。若要 AI 等級的人聲分離，可自行整合 [Demucs](https://github.com/facebookresearch/demucs)。
-- 影片模式下不提供變速（避免影音不同步），其他效果只改變聲音。
-- 效果是下載完成後再用 ffmpeg 處理，預覽播放器聽不到效果。
+   ```text
+   周杰倫 - 晴天
+   告白氣球 / 周杰倫
+   1. 五月天 - 倔強 4:22
+   ```
 
-### 畫面比例小提醒
+3. 或按 **匯入檔案**（也可以直接把檔案拖進頁面），支援 CSV、TXT、XLSX。會自動找「歌名、歌手、專輯、長度」欄位，中英文欄名都可以（例如 Spotify 匯出的 `Track Name`、`Artist Name(s)`）；沒有表頭時，第一欄當歌名、第二欄當歌手。
+4. 勾選要下載的歌，選格式，按 **全部自動下載** 或 **下載勾選的歌曲**。
 
-- 選的比例和原影片不同時，畫面**不會被拉伸變形**，多出來的地方會用你選的方式補齊：**黑邊**、**白邊**、**模糊背景**（影片本身放大模糊）、**霧化封面**（影片封面圖放大霧化）。
-- 選「裁切填滿」不會有邊框，但上下或左右的內容會被裁掉。
-- 改變比例需要重新編碼影片（使用 Mac 硬體 HEVC），會多花一點處理時間。
+每首歌會自動到 YouTube 找最適合的版本：先排除翻唱、伴奏、Remix 等，優先選「歌手 - Topic」頻道、VEVO、唱片公司或歌手官方頻道，都沒有才選觀看次數最高的。
 
-### 畫質提升小提醒
+### 下載清單
 
-- 這是**傳統影像處理**（輕度降噪 → Lanczos 放大 → 對比自適應銳化），**不是 AI 超解析度**，無法還原原本沒有的細節，但在大螢幕上看起來會比較乾淨、清楚。
-- 使用 Mac 內建硬體 HEVC（H.265）編碼，速度約為影片長度的 0.5～1 倍。
-- 想要 AI 還原可自行整合 [Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)（`realesrgan-ncnn-vulkan` 有 macOS 版本），但速度會慢非常多。
+- 上方圓環顯示整體進度；每一項顯示百分比、目前步驟、已下載大小、速度、剩餘時間。
+- 進行中可 **取消**；失敗可 **重試** 或 **回報**；完成後點縮圖、標題，或在該列點兩下即可打開。
+- App 會自動用能播放的程式打開：macOS 內建可播放的格式用預設程式，MKV、WEBM、OPUS 等會改用 IINA 或 VLC（若已安裝）。
+- 檔案預設存在「下載項目」資料夾，可在「偏好設定」更改。
 
----
+### 音訊工具
 
-## 專案結構
+在「新增下載」或「歌單批次下載」展開 **音訊工具**：
 
-```text
-Package.swift
-scripts/build-app.sh            # 打包成 .app（--universal 同時支援 Intel）
-scripts/package.sh              # 產生發佈用的 .dmg / .zip
-scripts/make-icon.swift         # 由 assets/logo-source.png 產生 App 圖示
-assets/                         # App 圖示原圖與產生的 AppIcon.png / AppIcon.icns
-Sources/TubeGrab/
-├── App.swift                   # App 進入點、側邊欄、外觀套用
-├── Router.swift                # 側欄頁面與頁面之間的轉交
-├── Models.swift                # 設定（UserDefaults）、下載選項、歌曲資訊
-├── Localization.swift          # 五種語言翻譯表
-├── Theme.swift                 # 深淺色、主題色、字型、卡片 / 按鈕樣式
-├── ProcessRunner.swift         # 執行外部指令、逐行讀取輸出
-├── ToolInstaller.swift         # 自動偵測 / 安裝 yt-dlp、ffmpeg、deno
-├── YTDLPService.swift          # 呼叫 yt-dlp：讀資訊、預覽、搜尋、組下載參數
-├── PlaylistImporter.swift      # Spotify / Apple Music / KKBOX / 文字歌單、選歌規則
-├── AudioTools.swift            # 音訊效果、畫質提升、畫面比例（ffmpeg 濾鏡）
-├── PreviewRenderer.swift       # 「套用設定後」預覽片段的產生
-├── MetadataLookup.swift        # 網路歌曲資訊查詢（iTunes Search API）
-├── LyricsService.swift         # 歌詞查詢（LRCLIB）、.lrc、寫入 MP3 USLT / 其他格式標籤
-├── DownloadManager.swift       # 下載佇列、進度計算
-│   （AboutView.swift 裡的 AppInfo.repoURL：開好 GitHub Repo 後改成你的網址）
-└── Views/
-    ├── NewDownloadView.swift   # 新增下載：網址、選項、歌曲資訊
-    ├── SearchView.swift        # 搜尋歌曲
-    ├── BatchView.swift         # 歌單批次下載
-    ├── AppearanceView.swift    # 外觀
-    ├── HelpView.swift          # 說明（五種語言的操作步驟）
-    ├── PreviewTrimView.swift   # 預覽播放器 + 修剪
-    ├── QueueView.swift         # 下載清單 + 進度條
-    ├── SettingsView.swift      # 偏好設定
-    └── AboutView.swift         # 關於：版本、聲明、開源致謝、GitHub 連結
-```
+- **聲道**：立體聲、只用左聲道、只用右聲道、左右互換、單聲道，以及左右平衡。
+- **去除人聲**：消除正中央的人聲做成卡拉 OK 伴奏，並保留低音、自動補回音量。適合立體聲的錄音室版本；現場版或接近單聲道的錄音效果有限，預覽時會提醒。
+- **音量**、**音量標準化**、**升降 Key**（正負 6 個半音）、**速度**（僅音樂）、**淡入**、**淡出**。
 
-### 運作原理（給想學習的人）
+### 畫質提升與畫面比例（影片）
 
-- 用 `yt-dlp -J` 取得影片資訊（JSON），把使用者修改後的歌名／歌手寫成 `meta_title`、`meta_artist` 等欄位，再用 `--load-info-json` 交給 yt-dlp 下載；`--embed-metadata` 會把這些資訊寫進檔案。
-- 進度：`--progress-template` 讓 yt-dlp 輸出固定格式的百分比；修剪時改由 ffmpeg 下載，用 `-progress pipe:2` 的 `out_time_us` 計算百分比。影片的「視訊 → 音訊 → 合併」會換算成一條連續的整體進度。
-- 預覽：直接播放 YouTube 提供的 HLS 串流（AVPlayer 原生支援）。
-- Spotify / Apple Music 只讀取公開頁面上的歌名與歌手，KKBOX 使用官方 Open API，再到 YouTube 搜尋公開影片。
+- **畫質提升**：把 360p、720p、1080p 放大到 1080p、1440p 或 4K，並降噪、銳化。這是傳統影像處理，不是 AI 還原，無法生出原本沒有的細節。使用 Mac 硬體 HEVC 編碼，處理時間約為影片長度的 0.5 到 1 倍。
+- **畫面比例**：原始、16:9、9:16、1:1、4:3、4:5、21:9。比例和原影片不同時，畫面不會變形，空白處可選 **黑邊**、**白邊**、**模糊背景**、**霧化封面**；或選 **裁切填滿**（沒有邊框，但會裁掉邊緣）。
 
----
+### 歌詞下載
+
+1. 選 **音樂** 後，打開 **一併下載歌詞**。
+2. 選擇 **存成 .lrc 同步歌詞檔**（與歌曲放在一起，IINA 等播放器會一句一句顯示）與 **寫入歌曲檔案**（Apple Music 可顯示）。
+3. **繁簡轉換** 可選依介面語言、不轉換、轉成繁體或轉成簡體。
+
+歌詞來自開放的 LRCLIB 資料庫，會同時用繁體與簡體比對；修剪時同步歌詞的時間會跟著調整。找不到歌詞時下載仍會完成，下載清單會標示「找不到歌詞」。
+
+### 外觀與介面大小
+
+- **顯示模式**：跟隨系統、淺色、深色。
+- **主題配色**：7 種預設配色，或選 **自訂顏色** 挑兩個顏色；可開關 **使用漸層** 並選漸層方向。
+- **字型**、**字體大小**、**按鈕大小**、**粗體字**。
+- **介面比例**：80% 到 150%，也可用快捷鍵 `Command +`、`Command -`、`Command 0`。
+- **跟著視窗大小縮放**：視窗拉大時文字與按鈕一起變大。
+- 側欄可用工具列按鈕或 `Control Command S` 收合與展開。
+
+### 偏好設定
+
+- **介面語言**：繁體中文、简体中文、English、日本語、한국어，或跟隨系統。
+- **下載儲存位置**、**同時下載數量**（預設不限制；遇到 YouTube 要求驗證時可改成 2 到 3）。
+- **外部工具**：yt-dlp 與 ffmpeg 的路徑；按 **自動偵測**，找不到會自動安裝；**更新 yt-dlp**。
+- **YouTube 登入**：遇到「Sign in to confirm you're not a bot」時，打開 **使用瀏覽器的 YouTube 登入**。
+  - 若顯示「macOS 不允許 TubeGrab 讀取這個瀏覽器的資料」，按 **打開系統設定**，在「完全取用磁碟」加入 TubeGrab 並打開開關，再重新打開 App。
+  - 或選 **cookies.txt 檔案**，用瀏覽器擴充功能匯出後選擇該檔案（這個檔案等同你的登入狀態，請勿分享）。
+- **KKBOX Open API**、**Spotify API**（選填）。
+
+### 檢查更新與回報問題
+
+- App 啟動時每天自動檢查一次 GitHub 是否有新版本；也可以到 **關於** 按 **檢查更新**。有新版本時會顯示更新內容與 **下載更新** 按鈕。
+- 到 **關於** 按 **回報問題** 或 **功能建議**，會開啟 GitHub 並自動填好版本與環境資訊；下載失敗時也可以在該項目按 **回報**。送出前可以先檢查、修改，不會帶出你的使用者名稱。
 
 ## 常見問題
 
-- **下載失敗、出現 HTTP 403 或 "Sign in to confirm"**：YouTube 經常改版，請到「設定 → 更新 yt-dlp」，或執行：
+**出現「Sign in to confirm you're not a bot」或 HTTP 403**
+YouTube 暫時要求驗證（短時間內使用太多次）。請等幾分鐘、到「偏好設定」按 **更新 yt-dlp**，或打開 **使用瀏覽器的 YouTube 登入**。
 
-  ```bash
-  brew upgrade yt-dlp
-  ```
+**出現「could not find chrome cookies database」**
+macOS 不允許 TubeGrab 讀取瀏覽器資料。請依「偏好設定」中的步驟允許「完全取用磁碟」，或改用 cookies.txt 檔案。
 
-- **MP4 在 QuickTime 無法播放**：1080p 以下會優先選 H.264；4K 通常只有 VP9/AV1，可改用 MKV 搭配 [IINA](https://iina.io) 播放。
-- **Spotify / Apple Music 讀不到歌曲**：歌單必須是公開的；網站改版也可能造成解析失敗（範例程式，未保證長期可用）。
-- **KKBOX 網址顯示需要金鑰**：KKBOX 網站有機器人防護，本程式不會繞過；請申請免費 Open API 金鑰或改用「貼上歌單文字」。
+**MP4 在 QuickTime 打不開**
+4K 影片通常只有 VP9 或 AV1 編碼。請選 1080p 以下，或改用 MKV 搭配 [IINA](https://iina.io) 播放。
 
----
+**讀不到 Spotify 或 Apple Music 歌單**
+歌單必須是公開的；網站改版也可能造成解析失敗。
+
+**中文歌找不到歌詞**
+請確認歌名與歌手正確（可先在歌曲資訊修正），再按 **找歌詞** 預覽。部分冷門歌曲在 LRCLIB 上可能沒有資料。
+
+**去除人聲沒有效果**
+去除人聲需要立體聲錄音；現場版或接近單聲道的錄音效果有限。可改用搜尋找「歌手 - Topic」的官方音源。
+
+## 給開發者
+
+### 需求
+
+| 項目 | 用途 | 必要性 |
+|---|---|---|
+| macOS 14 以上 | 執行 App | 必要 |
+| Xcode 15 以上或 Command Line Tools（Swift 5.10 以上） | 編譯 | 必要 |
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | 解析與下載影片 | 必要（App 可自動安裝） |
+| [ffmpeg](https://ffmpeg.org/)（含 ffprobe） | 合併、轉檔、修剪、封面、音訊與影片處理 | 必要（App 可自動安裝） |
+| [deno](https://deno.com/) | 新版 yt-dlp 完整支援 YouTube 需要的 JavaScript 執行環境 | 建議 |
+
+Swift 程式沒有使用任何第三方套件，只用 Apple 內建框架：SwiftUI、AVKit、AVFoundation、AppKit、Foundation。
+
+手動安裝外部工具：
+
+```bash
+brew install yt-dlp ffmpeg deno
+```
+
+### 編譯與執行
+
+```bash
+swift run
+```
+
+打包成 `build/TubeGrab.app`：
+
+```bash
+./scripts/build-app.sh
+```
+
+同時支援 Apple Silicon 與 Intel：
+
+```bash
+./scripts/build-app.sh --universal
+```
+
+用 Xcode 開啟：
+
+```bash
+open Package.swift
+```
+
+### 打包發佈
+
+```bash
+./scripts/package.sh 1.1
+```
+
+會在 `dist/` 產生 `TubeGrab-1.1-macOS.dmg`、`TubeGrab-1.1-macOS.zip` 與 `SHA256SUMS.txt`（`dist/` 已加入 `.gitignore`）。每次發佈請使用更大的版本號，App 的檢查更新才會通知使用者。
+
+### 更換 App 圖示
+
+把新圖片存成 `assets/logo-source.png`（任何背景都可以，會自動找出圓角方塊並去除背景與光暈），然後執行：
+
+```bash
+swift scripts/make-icon.swift
+```
+
+會產生 `assets/AppIcon.png` 與 `assets/AppIcon.icns`，下次打包時自動使用。
+
+### 專案結構
+
+```text
+Package.swift
+assets/                         App 圖示原圖與產生的圖示
+scripts/
+  build-app.sh                  打包成 .app（--universal 同時支援 Intel）
+  package.sh                    產生發佈用的 .dmg、.zip
+  make-icon.swift               由原圖產生 App 圖示
+Sources/TubeGrab/
+  App.swift                     App 進入點、側欄、外觀套用
+  Router.swift                  側欄頁面與頁面之間的轉交
+  PageStores.swift              各頁面的內容（切換頁面時保留）
+  Layout.swift                  依視窗大小縮放與窄畫面排版
+  Models.swift                  設定、下載選項、歌曲資訊
+  Localization.swift            五種語言翻譯
+  Theme.swift                   主題色、字型、卡片與按鈕樣式
+  Components.swift              共用元件（按鈕樣式、橫幅輸入列）
+  ProcessRunner.swift           執行外部指令並逐行讀取輸出
+  ToolInstaller.swift           自動偵測與安裝 yt-dlp、ffmpeg、deno
+  YTDLPService.swift            呼叫 yt-dlp：讀資訊、預覽、搜尋、下載參數
+  DownloadManager.swift         下載佇列與進度計算
+  PlaylistImporter.swift        Spotify、Apple Music、KKBOX、文字歌單與選歌規則
+  PlaylistFileImporter.swift    匯入 CSV、TXT、XLSX
+  AudioTools.swift              音訊效果、畫質提升、畫面比例（ffmpeg 濾鏡）
+  PreviewRenderer.swift         「套用設定後」預覽片段
+  AudioPreviewPlayer.swift      搜尋結果試聽
+  MetadataLookup.swift          網路歌曲資訊（iTunes Search API）
+  LyricsService.swift           歌詞查詢、.lrc、寫入歌詞標籤
+  ScoreFinder.swift             找譜、歌詞匯出
+  FileOpener.swift              用能播放的程式打開檔案
+  Feedback.swift                回報問題（GitHub issue）
+  UpdateChecker.swift           檢查 GitHub Releases 新版本
+  Views/                        各頁面畫面
+```
+
+### 運作原理
+
+- 用 `yt-dlp -J` 取得影片資訊，把修改後的歌名、歌手寫成 `meta_title`、`meta_artist` 等欄位，再用 `--load-info-json` 下載；`--embed-metadata` 會寫入檔案。
+- 進度：`--progress-template` 輸出固定格式的百分比；修剪時改由 ffmpeg 下載，用 `-progress pipe:2` 的 `out_time_us` 計算。影片的視訊、音訊、合併會換算成一條連續的整體進度。
+- 音訊工具、畫質提升與畫面比例在下載後用一次 ffmpeg 處理完成；「套用設定後」預覽使用相同的處理流程。
+- MP3 的歌詞寫入 ID3 的 USLT 欄位（ffmpeg 只能寫成 Apple Music 不讀取的 TXXX 欄位，所以由 App 直接寫入）；其他格式使用 lyrics 標籤。
+- Spotify 與 Apple Music 只讀取公開頁面上的歌名與歌手，KKBOX 使用官方 Open API，再到 YouTube 搜尋公開影片。
+
+## 使用的開源專案
+
+| 專案 | 授權 | 用途 |
+|---|---|---|
+| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Unlicense | 影片解析與下載 |
+| [FFmpeg](https://ffmpeg.org/) | LGPL / GPL | 影音處理 |
+| [Deno](https://deno.com/) | MIT | yt-dlp 的 JavaScript 執行環境 |
+| [LRCLIB](https://lrclib.net/) | 開放資料 | 歌詞資料庫 |
+| iTunes Search API | Apple | 歌曲資訊參考 |
 
 ## 授權
 
-範例程式碼可自由學習、修改。yt-dlp（Unlicense）、ffmpeg（LGPL/GPL）、deno（MIT）各自依其授權條款使用。
-再次提醒：**本專案僅供教學用途，請尊重創作者與著作權。**
+本專案程式碼以 [MIT License](LICENSE) 授權。外部工具與資料來源依其各自的授權條款使用。
+
+再次提醒：本專案僅供教學用途，請尊重創作者與著作權。

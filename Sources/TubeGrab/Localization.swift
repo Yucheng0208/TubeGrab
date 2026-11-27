@@ -47,6 +47,7 @@ enum L10n {
         "nav.queue": ["下載清單", "下载列表", "Downloads", "ダウンロード一覧", "다운로드 목록"],
         "nav.settings": ["設定", "设置", "Settings", "設定", "설정"],
         "nav.about": ["關於", "关于", "About", "このアプリについて", "정보"],
+        "about.license": ["以 MIT 授權開放原始碼", "以 MIT 许可证开源", "Open source under the MIT License", "MIT ライセンスのオープンソース", "MIT 라이선스 오픈소스"],
         "about.version": ["版本", "版本", "Version", "バージョン", "버전"],
         "about.desc": ["簡單好用的 macOS 影片與音樂下載工具：貼上網址或輸入歌名，選一選就能下載。這是一個 SwiftUI 教學範例專案。", "简单好用的 macOS 视频与音乐下载工具：粘贴链接或输入歌名，选一选就能下载。这是一个 SwiftUI 教学示例项目。", "A simple macOS video & music downloader — paste a link or type a song, pick, and download. A SwiftUI teaching sample.", "URL を貼るか曲名を入力して選ぶだけの、シンプルな macOS 動画・音楽ダウンローダー。SwiftUI の学習用サンプルです。", "주소를 붙여넣거나 곡명을 입력하고 고르기만 하면 되는 간단한 macOS 다운로더. SwiftUI 학습용 예제입니다."],
         "about.notice": ["免責聲明", "免责声明", "Disclaimer", "免責事項", "면책 조항"],
@@ -133,6 +134,7 @@ enum L10n {
 
         // 播放清單
         "pl.title": ["播放清單", "播放列表", "Playlist", "プレイリスト", "재생목록"],
+        "pl.selectedCount": ["已勾選 %d 首", "已勾选 %d 首", "%d selected", "%d 曲を選択", "%d곡 선택됨"],
         "pl.tracks": ["首歌曲", "首歌曲", "tracks", "曲", "곡"],
         "pl.downloadAll": ["全部自動下載", "全部自动下载", "Download all automatically", "すべて自動ダウンロード", "모두 자동 다운로드"],
         "pl.downloadSelected": ["下載勾選的歌曲", "下载勾选的歌曲", "Download selected", "選択した曲をダウンロード", "선택한 곡 다운로드"],
@@ -276,8 +278,8 @@ enum L10n {
         "ar.fill.blur": ["模糊背景", "模糊背景", "Blurred", "ぼかし背景", "흐린 배경"],
         "ar.fill.coverBlur": ["霧化封面", "雾化封面", "Blurred cover", "ぼかしカバー", "흐린 커버"],
         "ar.fill.crop": ["裁切填滿", "裁切填满", "Crop to fill", "切り抜き", "잘라서 채우기"],
-        "ar.warnPad": ["⚠️ 選的比例和原影片不同時，畫面不會變形，多出來的地方會用「%@」補齊。", "⚠️ 选的比例和原视频不同时，画面不会变形，多出来的地方会用「%@」补齐。", "⚠️ If the ratio differs from the original, the picture won't be stretched — the extra space is filled with “%@”.", "⚠️ 元の動画と比率が違う場合、映像は歪まず、余った部分は「%@」で埋められます。", "⚠️ 원본과 비율이 다르면 화면이 늘어나지 않고 남는 부분은 ‘%@’(으)로 채워집니다."],
-        "ar.warnCrop": ["⚠️ 「裁切填滿」不會有邊框，但畫面上下或左右的內容會被裁掉。", "⚠️ 「裁切填满」不会有边框，但画面上下或左右的内容会被裁掉。", "⚠️ “Crop to fill” has no bars, but the top/bottom or sides of the picture are cut off.", "⚠️「切り抜き」は帯なしですが、上下または左右が切り取られます。", "⚠️ ‘잘라서 채우기’는 여백이 없지만 위아래 또는 좌우가 잘립니다."],
+        "ar.warnPad": ["選的比例和原影片不同時，畫面不會變形，多出來的地方會用「%@」補齊。", "选的比例和原视频不同时，画面不会变形，多出来的地方会用「%@」补齐。", "If the ratio differs from the original, the picture won't be stretched — the extra space is filled with “%@”.", "元の動画と比率が違う場合、映像は歪まず、余った部分は「%@」で埋められます。", "원본과 비율이 다르면 화면이 늘어나지 않고 남는 부분은 ‘%@’(으)로 채워집니다."],
+        "ar.warnCrop": ["「裁切填滿」不會有邊框，但畫面上下或左右的內容會被裁掉。", "「裁切填满」不会有边框，但画面上下或左右的内容会被裁掉。", "“Crop to fill” has no bars, but the top/bottom or sides of the picture are cut off.", "「切り抜き」は帯なしですが、上下または左右が切り取られます。", "‘잘라서 채우기’는 여백이 없지만 위아래 또는 좌우가 잘립니다."],
         "pv.original": ["原始", "原始", "Original", "オリジナル", "원본"],
         "pv.applied": ["套用設定後", "应用设置后", "With settings", "設定適用後", "설정 적용 후"],
         "pv.render": ["預覽套用後的效果", "预览应用后的效果", "Preview with settings", "設定を適用してプレビュー", "설정 적용 미리보기"],
@@ -375,7 +377,7 @@ enum L10n {
         "search.modeLyrics": ["用歌詞", "用歌词", "By lyrics", "歌詞で", "가사로"],
         "search.lyricsSubtitle": ["只記得一句歌詞？輸入那一句就能找到歌", "只记得一句歌词？输入那一句就能找到歌", "Only remember a line? Type it to find the song", "歌詞の一節だけでも曲を探せます", "가사 한 줄만 기억나도 곡을 찾을 수 있어요"],
         "search.lyricsPlaceholder": ["例如：故事的小黃花 從出生那年就飄著", "例如：故事的小黄花 从出生那年就飘着", "e.g. a line you remember from the song", "例：覚えている歌詞の一節", "예: 기억나는 가사 한 줄"],
-        "search.lyricsTips": ["輸入連續的一兩句最準確；錯字或只有一兩個字比較難找到。找到後可以先按 ▶ 試聽確認。", "输入连续的一两句最准确；错字或只有一两个字比较难找到。找到后可以先点 ▶ 试听确认。", "One or two consecutive lines work best; typos or very short phrases are harder. Press ▶ to preview and confirm.", "連続した1〜2行が最も正確です。見つかったら ▶ で試聴して確認できます。", "연속된 한두 줄이 가장 정확합니다. 찾으면 ▶로 미리 들어 확인하세요."],
+        "search.lyricsTips": ["輸入連續的一兩句最準確；錯字或只有一兩個字比較難找到。找到後可以先按播放鍵試聽確認。", "输入连续的一两句最准确；错字或只有一两个字比较难找到。找到后可以先点播放键试听确认。", "One or two consecutive lines work best; typos or very short phrases are harder. Press the play button to preview and confirm.", "連続した1〜2行が最も正確です。見つかったら再生ボタンで試聴して確認できます。", "연속된 한두 줄이 가장 정확합니다. 찾으면 재생 버튼으로 미리 들어 확인하세요."],
 
         "ly.copy": ["複製歌詞", "复制歌词", "Copy lyrics", "歌詞をコピー", "가사 복사"],
         "ly.copied": ["已複製", "已复制", "Copied", "コピーしました", "복사됨"],

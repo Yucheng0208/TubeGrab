@@ -42,7 +42,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleLocalizations</key>
     <array><string>zh-Hant</string><string>zh-Hans</string><string>en</string><string>ja</string><string>ko</string></array>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
-    <key>NSHumanReadableCopyright</key><string>For educational use only.</string>
+    <key>NSHumanReadableCopyright</key><string>Copyright (c) 2026 Yu-Cheng Chang. MIT License. For educational use only.</string>
 </dict>
 </plist>
 PLIST
@@ -64,5 +64,5 @@ codesign --force --deep --sign - "$APP" >/dev/null 2>&1 || true
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$APP" >/dev/null 2>&1 || true
 touch "$APP"
 
-echo "✅ 完成：$(pwd)/$APP"
+echo "完成：$(pwd)/$APP"
 echo "   可以把它拖到「應用程式」資料夾。"
