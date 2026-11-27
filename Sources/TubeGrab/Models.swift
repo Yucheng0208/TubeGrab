@@ -34,6 +34,14 @@ final class AppSettings {
     var fontChoice: FontChoice { didSet { d.set(fontChoice.rawValue, forKey: "fontChoice") } }
     var textSize: TextSize { didSet { d.set(textSize.rawValue, forKey: "textSize") } }
     var boldText: Bool { didSet { d.set(boldText, forKey: "boldText") } }
+    /// 介面跟著視窗大小縮放
+    var scaleWithWindow: Bool { didSet { d.set(scaleWithWindow, forKey: "scaleWithWindow") } }
+    /// 啟動時自動檢查更新（一天一次）
+    var autoCheckUpdates: Bool { didSet { d.set(autoCheckUpdates, forKey: "autoCheckUpdates") } }
+    /// 使用者自訂的介面比例（0.8～1.5），乘在自動縮放上
+    var uiZoom: Double { didSet { d.set(uiZoom, forKey: "uiZoom") } }
+    /// 按鈕大小
+    var buttonSize: TextSize { didSet { d.set(buttonSize.rawValue, forKey: "buttonSize") } }
     /// 自訂主題的兩個顏色（#RRGGBB）、是否使用漸層、漸層方向
     var customColorA: String { didSet { d.set(customColorA, forKey: "customColorA") } }
     var customColorB: String { didSet { d.set(customColorB, forKey: "customColorB") } }
@@ -68,6 +76,10 @@ final class AppSettings {
         fontChoice = FontChoice(rawValue: d.string(forKey: "fontChoice") ?? "") ?? .rounded
         textSize = TextSize(rawValue: d.string(forKey: "textSize") ?? "") ?? .medium
         boldText = d.bool(forKey: "boldText")
+        scaleWithWindow = d.object(forKey: "scaleWithWindow") as? Bool ?? true
+        autoCheckUpdates = d.object(forKey: "autoCheckUpdates") as? Bool ?? true
+        uiZoom = d.object(forKey: "uiZoom") as? Double ?? 1.0
+        buttonSize = TextSize(rawValue: d.string(forKey: "buttonSize") ?? "") ?? .medium
         // 預設的自訂色取自 App 圖示的漸層
         customColorA = d.string(forKey: "customColorA") ?? "#F7A35C"
         customColorB = d.string(forKey: "customColorB") ?? "#8E6BF5"

@@ -45,8 +45,8 @@ struct BatchView: View {
                     sourcesGrid
                 }
             }
-            .padding(36)
-            .frame(maxWidth: 1160, alignment: .leading)
+            .padding(ui(36))
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity)
             .animation(.snappy(duration: 0.28), value: tracks.count)
         }
@@ -99,14 +99,16 @@ struct BatchView: View {
             .buttonStyle(HeroButtonStyle(primary: true))
             .disabled(urlText.isEmpty || loading)
         } footer: {
-            HStack(spacing: 10) {
+            AdaptiveStack(spacing: 10) {
                 Button { showListSheet = true } label: { Label(t("list.button"), systemImage: "text.badge.plus") }
                     .buttonStyle(HeroButtonStyle())
                 Button { chooseFile() } label: { Label(t("imp.button"), systemImage: "doc.badge.arrow.up") }
                     .buttonStyle(HeroButtonStyle())
-                Spacer()
-                Label(t("imp.dropHint"), systemImage: "hand.point.up.left")
-                    .font(.app(.caption)).foregroundStyle(.white.opacity(0.85))
+                if !LayoutState.shared.isCompact {
+                    Spacer()
+                    Label(t("imp.dropHint"), systemImage: "hand.point.up.left")
+                        .font(.app(.caption)).foregroundStyle(.white.opacity(0.85))
+                }
             }
         }
     }
@@ -137,7 +139,7 @@ struct BatchView: View {
 
     /// 還沒輸入時：顯示支援的來源
     private var sourcesGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 14) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: LayoutState.shared.isCompact ? 1 : 2), spacing: 14) {
             sourceCard("play.rectangle.fill", "YouTube", t("batch.src.youtube"))
             sourceCard("music.note", "Spotify", t("batch.src.spotify"))
             sourceCard("applelogo", "Apple Music", t("batch.src.apple"))

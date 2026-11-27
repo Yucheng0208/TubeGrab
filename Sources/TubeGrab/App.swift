@@ -19,17 +19,29 @@ struct TubeGrabApp: App {
     var body: some Scene {
         WindowGroup("TubeGrab") {
             ContentView()
-                .frame(minWidth: 1100, minHeight: 760)
+                // 不限制視窗大小：任何尺寸、全螢幕都可以，內容會自動調整
+                .frame(minWidth: 480, minHeight: 420)
         }
         .defaultSize(width: 1280, height: 880)
         .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(after: .toolbar) {
+                Button(t("zoom.in")) { Zoom.zoomIn() }.keyboardShortcut("+", modifiers: .command)
+                Button(t("zoom.in")) { Zoom.zoomIn() }.keyboardShortcut("=", modifiers: .command)
+                Button(t("zoom.out")) { Zoom.zoomOut() }.keyboardShortcut("-", modifiers: .command)
+                Button(t("zoom.reset")) { Zoom.reset() }.keyboardShortcut("0", modifiers: .command)
+                Divider()
+            }
+        }
     }
 }
 
 struct ContentView: View {
     /// 側欄是否顯示。用 @State 才有動畫（@AppStorage 的變更不會帶動畫），另外存起來記住上次狀態
     @State private var sidebarVisible = UserDefaults.standard.object(forKey: "sidebarVisible") as? Bool ?? true
-    private let sidebarWidth: CGFloat = 250
+    private var sidebarWidth: CGFloat { min(max(ui(250), 220), 360) }
+    /// 視窗很窄時，側欄改成浮在頁面上（按側欄按鈕叫出來，選完自動收起）
+    @State private var overlaySidebar = false
     /// 視窗標題列（紅綠燈那一列）的高度
     private let titleBarHeight: CGFloat = 52
     private var router = AppRouter.shared
@@ -40,20 +52,50 @@ struct ContentView: View {
         @Bindable var router = router
         // 自己做的側欄：收合 / 展開時整個側欄往左滑出、頁面同步推開
         //（系統的 NavigationSplitView 在 macOS 上是把側欄「裁掉、被頁面蓋住」，看起來卡卡的）
-        HStack(spacing: 0) {
-            sidebar
-                .frame(width: sidebarWidth)
-                .frame(width: sidebarVisible ? sidebarWidth : 0, alignment: .trailing)
-                .clipped()
-            Divider().opacity(sidebarVisible ? 1 : 0)
-            detail
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        let layout = LayoutState.shared
+        let narrow = layout.isNarrowWindow
+        let showDocked = sidebarVisible && !narrow
+        GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                HStack(spacing: 0) {
+                    sidebar
+                        .frame(width: sidebarWidth)
+                        .frame(width: showDocked ? sidebarWidth : 0, alignment: .trailing)
+                        .clipped()
+                    Divider().opacity(showDocked ? 1 : 0)
+                    detail
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+                // 浮動側欄打開時，下面的頁面不能點、也不讓輔助工具讀到
+                .allowsHitTesting(!(narrow && overlaySidebar))
+                .accessibilityHidden(narrow && overlaySidebar)
+                // 窄視窗：浮動側欄
+                if narrow && overlaySidebar {
+                    Color.black.opacity(0.18).ignoresSafeArea()
+                        .onTapGesture { withAnimation(.smooth(duration: 0.28)) { overlaySidebar = false } }
+                        .transition(.opacity)
+                    sidebar
+                        .frame(width: sidebarWidth)
+                        .shadow(color: .black.opacity(0.25), radius: 16, x: 4)
+                        .transition(.move(edge: .leading))
+                }
+            }
+            .onAppear { measure(geo.size.width, docked: showDocked) }
+            .onChange(of: geo.size.width) { _, w in measure(w, docked: sidebarVisible && !LayoutState.shared.isNarrowWindow) }
+            .onChange(of: sidebarVisible) { _, v in measure(geo.size.width, docked: v && !LayoutState.shared.isNarrowWindow) }
+            .onChange(of: router.section) { _, _ in
+                if overlaySidebar { withAnimation(.smooth(duration: 0.28)) { overlaySidebar = false } }
+            }
         }
         .toolbar {
             ToolbarItem(placement: .navigation) {
                 Button {
-                    withAnimation(.smooth(duration: 0.32)) { sidebarVisible.toggle() }
-                    UserDefaults.standard.set(sidebarVisible, forKey: "sidebarVisible")
+                    if LayoutState.shared.isNarrowWindow {
+                        withAnimation(.smooth(duration: 0.28)) { overlaySidebar.toggle() }
+                    } else {
+                        withAnimation(.smooth(duration: 0.32)) { sidebarVisible.toggle() }
+                        UserDefaults.standard.set(sidebarVisible, forKey: "sidebarVisible")
+                    }
                 } label: {
                     Image(systemName: "sidebar.left")
                 }
@@ -68,7 +110,12 @@ struct ContentView: View {
         .font(.app(.body))
         // 整體按鈕、選單、開關都用大一號
         .controlSize(.large)
-        .id("\(settings.language.rawValue)-\(settings.textSize.rawValue)-\(settings.boldText)-\(settings.fontChoice.rawValue)")
+        .id("\(settings.language.rawValue)-\(settings.textSize.rawValue)-\(settings.boldText)-\(settings.fontChoice.rawValue)-\(settings.buttonSize.rawValue)")
+        // 檢查更新：啟動時自動（一天一次），有新版本就跳出提示
+        .task { UpdateChecker.shared.checkOnLaunch() }
+        .sheet(isPresented: Bindable(UpdateChecker.shared).showSheet) {
+            if let r = UpdateChecker.shared.availableRelease { UpdateSheet(release: r) }
+        }
         .onChange(of: settings.appearance, initial: true) { _, mode in
             // 只在 App 層級設定外觀：nil = 跟隨系統。
             // （SwiftUI 的 preferredColorScheme 在 macOS 上一旦設過深色/淺色，改回 nil 不會還原，所以不用它）
@@ -76,6 +123,10 @@ struct ContentView: View {
             NSApp.appearance = appearance
             for w in NSApp.windows { w.appearance = appearance }
         }
+    }
+
+    private func measure(_ w: CGFloat, docked: Bool) {
+        LayoutState.shared.update(windowWidth: w, contentWidth: w - (docked ? sidebarWidth : 0))
     }
 
     // MARK: 側欄
@@ -88,6 +139,7 @@ struct ContentView: View {
                 Section(t("side.download")) {
                     sidebarRow(.new, t("nav.new"), "plus.circle.fill")
                     sidebarRow(.search, t("nav.search"), "magnifyingglass.circle.fill")
+                    sidebarRow(.lyrics, t("nav.lyrics"), "quote.bubble.fill")
                     sidebarRow(.batch, t("nav.batch"), "music.note.list")
                     sidebarRow(.queue, t("nav.queue"), "arrow.down.circle.fill",
                                badge: manager.tasks.filter { !$0.status.isFinished }.count)
@@ -104,7 +156,7 @@ struct ContentView: View {
             .listStyle(.sidebar)
             .safeAreaInset(edge: .top, spacing: 0) {
                 HStack(spacing: 10) {
-                    AppLogo(size: 34)
+                    AppLogo(size: ui(34))
                     Text("TubeGrab").font(.app(.title3).weight(.bold))
                         .lineLimit(1).fixedSize()
                     Spacer(minLength: 0)
@@ -143,7 +195,8 @@ struct ContentView: View {
             Group {
                 switch router.section {
                 case .new: NewDownloadView(onAdded: { router.go(.queue) })
-                case .search: SearchView()
+                case .search: SearchView(mode: .song)
+                case .lyrics: SearchView(mode: .lyrics)
                 case .batch: BatchView()
                 case .queue: QueueView()
                 case .appearance: AppearanceView()

@@ -42,8 +42,8 @@ struct NewDownloadView: View {
                     steps
                 }
             }
-            .padding(36)
-            .frame(maxWidth: 1160, alignment: .leading)
+            .padding(ui(36))
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .background(backgroundWash)
@@ -112,7 +112,7 @@ struct NewDownloadView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
-                AppLogo(size: 58)
+                AppLogo(size: ui(58))
                     .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("TubeGrab").font(.app(.largeTitle)).foregroundStyle(.white)
@@ -121,11 +121,11 @@ struct NewDownloadView: View {
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 8)
-                // 固定顯示（不用 ViewThatFits：側欄滑動時寬度一直變，標籤會一直閃）
-                badges
+                // 固定顯示（不用 ViewThatFits：側欄滑動時寬度一直變，標籤會一直閃）；窄畫面才隱藏
+                if !LayoutState.shared.isCompact { badges }
             }
 
-            HStack(spacing: 10) {
+            AdaptiveStack(spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "link").foregroundStyle(.secondary)
                     TextField(t("new.placeholder"), text: $store.urlText)
@@ -138,9 +138,10 @@ struct NewDownloadView: View {
                         }.buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 16).padding(.vertical, 15)
+                .padding(.horizontal, ui(16)).padding(.vertical, ui(15))
                 .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
+                HStack(spacing: 10) {
                 Button {
                     if let s = NSPasteboard.general.string(forType: .string) {
                         let text = s.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -155,7 +156,7 @@ struct NewDownloadView: View {
                 } label: {
                     Label(t("new.paste"), systemImage: "doc.on.clipboard.fill")
                         .font(.app(.headline))
-                        .padding(.horizontal, 20).padding(.vertical, 15)
+                        .padding(.horizontal, ui(20)).padding(.vertical, ui(15))
                         .foregroundStyle(.white)
                         .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
@@ -164,7 +165,7 @@ struct NewDownloadView: View {
                 Button { router.openBatch(showListSheet: true) } label: {
                     Image(systemName: "text.badge.plus")
                         .font(.app(.headline))
-                        .padding(.horizontal, 16).padding(.vertical, 15)
+                        .padding(.horizontal, ui(16)).padding(.vertical, ui(15))
                         .foregroundStyle(.white)
                         .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
@@ -176,17 +177,35 @@ struct NewDownloadView: View {
                 } label: {
                     Text(normalizeURL(urlText) == nil && !urlText.isEmpty ? t("search.button") : t("new.analyze"))
                         .font(.app(.headline))
-                        .padding(.horizontal, 26).padding(.vertical, 15)
+                        .padding(.horizontal, ui(26)).padding(.vertical, ui(15))
                         .foregroundStyle(theme.color)
                         .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
                 .disabled(urlText.isEmpty || loading)
                 .opacity(urlText.isEmpty ? 0.6 : 1)
+                }
+            }
+
+            // 打的是文字（不是網址）時：選擇用歌名或用歌詞搜尋
+            if !urlText.trimmingCharacters(in: .whitespaces).isEmpty && normalizeURL(urlText) == nil {
+                HStack(spacing: 8) {
+                    Text(t("new.searchAs")).font(.app(.callout)).foregroundStyle(.white.opacity(0.9))
+                    Button { router.openSearch(urlText.trimmingCharacters(in: .whitespaces)) } label: {
+                        Label(t("search.modeSong"), systemImage: "music.mic")
+                    }
+                    .buttonStyle(HeroButtonStyle())
+                    Button { router.openSearch(urlText.trimmingCharacters(in: .whitespaces), lyrics: true) } label: {
+                        Label(t("search.modeLyrics"), systemImage: "quote.bubble")
+                    }
+                    .buttonStyle(HeroButtonStyle())
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .padding(22)
-        .background(theme.gradient, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .animation(.snappy(duration: 0.25), value: normalizeURL(urlText) == nil && !urlText.isEmpty)
+        .padding(ui(22))
+        .background(theme.gradient, in: RoundedRectangle(cornerRadius: ui(22), style: .continuous))
         .shadow(color: theme.color.opacity(0.3), radius: 10, y: 5)
     }
 
@@ -219,7 +238,8 @@ struct NewDownloadView: View {
 
     /// 還沒貼網址時顯示的步驟說明
     private var steps: some View {
-        HStack(spacing: 14) {
+        // 窄畫面 2×2，寬畫面一排 4 個
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 14), count: LayoutState.shared.isCompact ? 2 : 4), spacing: 14) {
             stepCard(1, "doc.on.clipboard", t("new.paste"))
             stepCard(2, "magnifyingglass", t("new.analyze"))
             stepCard(3, "slider.horizontal.3", t("opt.quality"))
@@ -349,7 +369,7 @@ struct OptionsSection: View {
                         label(t("opt.format"))
                         Picker("", selection: $options.container) {
                             ForEach(VideoContainer.allCases) { Text($0.rawValue.uppercased()).tag($0) }
-                        }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
+                        }.adaptivePickerStyle().labelsHidden().frame(maxWidth: 320)
                     }
                     GridRow {
                         label(t("opt.quality"))
@@ -357,7 +377,7 @@ struct OptionsSection: View {
                             ForEach(videoHeights, id: \.self) { h in
                                 Text(h == 0 ? t("opt.best") : (h == 2160 ? "4K" : "\(h)p")).tag(h)
                             }
-                        }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
+                        }.adaptivePickerStyle().labelsHidden().frame(maxWidth: 520)
                     }
                     GridRow {
                         label(t("up.title"))
@@ -367,7 +387,7 @@ struct OptionsSection: View {
                                 Text("1080p").tag(1080)
                                 Text("1440p").tag(1440)
                                 Text("4K").tag(2160)
-                            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 380)
+                            }.adaptivePickerStyle().labelsHidden().frame(maxWidth: 380)
                             if options.upscaleHeight > 0 {
                                 Label(t("up.hint"), systemImage: "sparkles")
                                     .font(.app(.caption)).foregroundStyle(.secondary)
@@ -381,14 +401,14 @@ struct OptionsSection: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Picker("", selection: $options.aspect) {
                                 ForEach(AspectRatio.allCases) { Text($0.label).tag($0) }
-                            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 520)
+                            }.adaptivePickerStyle().labelsHidden().frame(maxWidth: 520)
                             if options.aspect != .original {
                                 VStack(alignment: .leading, spacing: 8) {
                                     HStack(spacing: 10) {
                                         Text(t("ar.fill")).font(.app(.callout)).foregroundStyle(.secondary)
                                         Picker("", selection: $options.padStyle) {
                                             ForEach(PadStyle.allCases) { Text(t($0.labelKey)).tag($0) }
-                                        }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 460)
+                                        }.adaptivePickerStyle().labelsHidden().frame(maxWidth: 460)
                                     }
                                     Label(options.padStyle == .crop
                                           ? t("ar.warnCrop")
@@ -425,7 +445,7 @@ struct OptionsSection: View {
                                 ForEach(audioBitrates, id: \.self) { b in
                                     Text(b == 0 ? t("opt.best") : "\(b)k").tag(b)
                                 }
-                            }.pickerStyle(.segmented).labelsHidden().frame(maxWidth: 380)
+                            }.adaptivePickerStyle().labelsHidden().frame(maxWidth: 380)
                         }
                     }
                     GridRow {
@@ -721,7 +741,7 @@ struct PlaylistSection: View {
             AudioToolsSection(options: $options)
 
             Card(title: t("pl.title"), icon: "list.bullet") {
-                HStack {
+                AdaptiveStack(spacing: 10) {
                     Button { for i in tracks.indices { tracks[i].selected = true } } label: {
                         Label(t("pl.selectAll"), systemImage: "checkmark.square")
                     }
@@ -966,7 +986,10 @@ struct SearchResultsSection: View {
                             .font(.app(.caption2).weight(.semibold)).foregroundStyle(theme.color)
                     }
                     Text(r.channel).font(.app(.caption)).foregroundStyle(.secondary).lineLimit(1)
-                    Text("· \(r.viewCount.formatted()) \(t("new.views"))").font(.app(.caption)).foregroundStyle(.secondary)
+                    // 觀看次數未知（0）時不顯示
+                    if r.viewCount > 0 {
+                        Text("· \(r.viewCount.formatted()) \(t("new.views"))").font(.app(.caption)).foregroundStyle(.secondary)
+                    }
                 }
             }
             Spacer()

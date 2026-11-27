@@ -2,12 +2,13 @@ import SwiftUI
 import Observation
 
 enum SidebarItem: String, Hashable, CaseIterable {
-    case new, search, batch, queue, appearance, settings, help, about
+    case new, search, lyrics, batch, queue, appearance, settings, help, about
 
     var titleKey: String {
         switch self {
         case .new: return "nav.new"
         case .search: return "nav.search"
+        case .lyrics: return "nav.lyrics"
         case .batch: return "nav.batch"
         case .queue: return "nav.queue"
         case .appearance: return "nav.appearance"
@@ -42,9 +43,10 @@ final class AppRouter {
         section = .new
     }
 
-    func openSearch(_ query: String) {
+    func openSearch(_ query: String, lyrics: Bool = false) {
+        PageStores.search.mode = lyrics ? .lyrics : .song
         pendingSearch = query
-        section = .search
+        section = lyrics ? .lyrics : .search
     }
 
     func openBatch(url: String? = nil, text: String? = nil,

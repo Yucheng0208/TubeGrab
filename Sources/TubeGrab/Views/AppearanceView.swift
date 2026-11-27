@@ -104,6 +104,34 @@ struct AppearanceView: View {
                     .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
                 } label: { Label(t("look.size"), systemImage: "textformat.size") }
 
+                LabeledContent {
+                    Picker("", selection: $s.buttonSize) {
+                        ForEach(TextSize.allCases) { Text(t($0.labelKey)).tag($0) }
+                    }
+                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
+                } label: { Label(t("look.buttonSize"), systemImage: "rectangle.and.hand.point.up.left") }
+
+                LabeledContent {
+                    HStack(spacing: 10) {
+                        Button { Zoom.zoomOut() } label: { Image(systemName: "minus.magnifyingglass") }
+                            .help("⌘−")
+                        Slider(value: $s.uiZoom, in: 0.8...1.5, step: 0.05)
+                            .frame(maxWidth: 220)
+                        Button { Zoom.zoomIn() } label: { Image(systemName: "plus.magnifyingglass") }
+                            .help("⌘+")
+                        Text("\(Int((s.uiZoom * 100).rounded()))%").monospacedDigit().frame(width: 48)
+                        Button(t("zoom.reset")) { Zoom.reset() }.disabled(abs(s.uiZoom - 1) < 0.01).help("⌘0")
+                    }
+                } label: { Label(t("look.zoom"), systemImage: "arrow.up.left.and.arrow.down.right") }
+
+                Toggle(isOn: $s.scaleWithWindow) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label(t("look.autoScale"), systemImage: "macwindow")
+                        Text(t("look.autoScaleHint")).font(.app(.caption)).foregroundStyle(.secondary)
+                    }
+                }
+                .toggleStyle(.switch)
+
                 Toggle(isOn: $s.boldText) { Label(t("look.bold"), systemImage: "bold") }
                     .toggleStyle(.switch)
 

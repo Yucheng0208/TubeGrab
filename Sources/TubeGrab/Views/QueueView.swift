@@ -85,8 +85,8 @@ struct QueueView: View {
                     }
                 }
             }
-            .padding(36)
-            .frame(maxWidth: 1160)
+            .padding(ui(36))
+            .frame(maxWidth: .infinity)
             .frame(maxWidth: .infinity)
             .animation(.spring(duration: 0.35), value: manager.tasks.map(\.id))
         }
@@ -196,7 +196,8 @@ struct TaskRow: View {
                             .foregroundStyle(task.status == .done && hovering ? AppSettings.shared.theme.color : .primary)
                             .onTapGesture { if task.status == .done { FileOpener.open(task.outputFile) } }
                         Spacer()
-                        buttons
+                        // 窄畫面時按鈕移到下面，避免把標題擠掉
+                        if !LayoutState.shared.isCompact { buttons }
                     }
                     HStack(spacing: 6) {
                         Pill(text: formatLabel, icon: task.options.kind == .audio ? "music.note" : "film")
@@ -213,6 +214,7 @@ struct TaskRow: View {
                             .font(.app(.caption2)).foregroundStyle(.secondary).lineLimit(1)
                     }
                     statusArea
+                    if LayoutState.shared.isCompact { buttons }
                 }
             }
         }

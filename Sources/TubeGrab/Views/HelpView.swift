@@ -34,6 +34,7 @@ enum HelpContent {
                   title: ["用歌名搜尋", "用歌名搜索", "Search by song name", "曲名で検索", "곡명으로 검색"],
                   steps: [
                     ["到「搜尋歌曲」輸入「歌手 歌名」，例如「周杰倫 晴天」；在「新增下載」直接打字也會跳過來。", "到「搜索歌曲」输入「歌手 歌名」，例如「周杰伦 晴天」；在「新建下载」直接打字也会跳过来。", "Type “artist title” in Search; typing text on New Download also jumps here.", "「曲を検索」で「アーティスト 曲名」を入力。「新規ダウンロード」で文字を入れてもここに移動します。", "‘곡 검색’에 ‘가수 곡명’을 입력하세요. ‘새 다운로드’에 글자를 입력해도 이동합니다."],
+                    ["只記得一句歌詞？到側欄「用歌詞找歌」輸入那一句（例如「故事的小黃花」）就能找到歌。", "只记得一句歌词？到侧栏「用歌词找歌」输入那一句（例如「故事的小黄花」）就能找到歌。", "Only remember a line? Use “Find by Lyrics” in the sidebar and type that line.", "歌詞の一節しか覚えていなければ、サイドバーの「歌詞で探す」に入力してください。", "가사 한 줄만 기억나면 사이드바의 ‘가사로 찾기’에 입력하세요."],
                     ["標「官方」的是唱片公司或歌手頻道；標「推薦」的是程式建議的最佳版本。", "标「官方」的是唱片公司或歌手频道；标「推荐」的是程序建议的最佳版本。", "“Official” means a label or artist channel; “Recommended” is the app’s best pick.", "「公式」はレーベルやアーティストのチャンネル、「おすすめ」はアプリの推奨です。", "‘공식’은 음반사/가수 채널, ‘추천’은 앱이 고른 최적 버전입니다."],
                     ["「選這首」可以設定格式、預覽、修改資訊；「直接下載音樂」會用預設值馬上下載。", "「选这首」可以设置格式、预览、修改信息；「直接下载音乐」会用默认值马上下载。", "“Choose” lets you set options and preview; “Download as music” starts right away with defaults.", "「これを選ぶ」で設定やプレビュー、「音楽として保存」は既定値ですぐ保存します。", "‘선택’은 설정·미리보기 가능, ‘음악으로 바로 받기’는 기본값으로 즉시 저장."],
                   ]),
@@ -187,8 +188,8 @@ struct HelpView: View {
                         .font(.app(.caption)).foregroundStyle(.secondary)
                 }
             }
-            .padding(36)
-            .frame(maxWidth: 1040, alignment: .leading)
+            .padding(ui(36))
+            .frame(maxWidth: ui(1100), alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))

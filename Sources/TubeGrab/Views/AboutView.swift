@@ -7,6 +7,11 @@ enum AppInfo {
     static let repoURL = "https://github.com/Yucheng0208/Tube-Grab"
     static var hasRepo: Bool { !repoURL.contains("YOUR-ACCOUNT") }
 
+    /// 版本號（不含 build），例如 "1.0"
+    static var shortVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
+    }
+
     static var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
         let b = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"
@@ -22,12 +27,13 @@ struct AboutView: View {
         ScrollView {
             VStack(spacing: 20) {
                 header
+                updateCard
                 disclaimer
                 credits
                 links
             }
-            .padding(36)
-            .frame(maxWidth: 920)
+            .padding(ui(36))
+            .frame(maxWidth: ui(1000))
             .frame(maxWidth: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
@@ -43,6 +49,50 @@ struct AboutView: View {
                 .foregroundStyle(.secondary).frame(maxWidth: 520)
         }
         .padding(.vertical, 10)
+    }
+
+    // MARK: 檢查更新
+
+    private var updateCard: some View {
+        let checker = UpdateChecker.shared
+        return Card(title: t("up2.title"), icon: "arrow.triangle.2.circlepath") {
+            HStack(spacing: 12) {
+                Group {
+                    switch checker.state {
+                    case .idle:
+                        if let last = UserDefaults.standard.object(forKey: "lastUpdateCheck") as? Date {
+                            Label("\(t("up2.lastChecked")) \(last.formatted(.relative(presentation: .named)))", systemImage: "clock")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Label(t("up2.idle"), systemImage: "clock").foregroundStyle(.secondary)
+                        }
+                    case .checking:
+                        HStack(spacing: 8) { ProgressView().controlSize(.small); Text(t("up2.checking")) }
+                    case .upToDate:
+                        Label(t("up2.latest"), systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                    case .noReleases:
+                        Label(t("up2.noReleases"), systemImage: "shippingbox").foregroundStyle(.secondary)
+                    case .available(let r):
+                        Label(String(format: t("up2.newVersion"), r.version), systemImage: "sparkles")
+                            .foregroundStyle(theme.color)
+                    case .failed(let msg):
+                        Label("\(t("up2.failed")) \(msg)", systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+                    }
+                }
+                .font(.app(.body))
+                Spacer()
+                if checker.availableRelease != nil {
+                    Button { checker.showSheet = true } label: { Label(t("up2.view"), systemImage: "arrow.down.circle.fill") }
+                        .buttonStyle(GradientButtonStyle())
+                }
+                Button { Task { await checker.check(manual: true) } } label: {
+                    Label(t("up2.checkNow"), systemImage: "arrow.clockwise")
+                }
+                .disabled(checker.state == .checking || !AppInfo.hasRepo)
+            }
+            Toggle(t("up2.auto"), isOn: Bindable(AppSettings.shared).autoCheckUpdates)
+                .toggleStyle(.checkbox).font(.app(.callout))
+        }
     }
 
     private var disclaimer: some View {

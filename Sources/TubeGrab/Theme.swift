@@ -91,6 +91,14 @@ enum AppTextStyle {
 
 extension Font {
     /// 依「設定 → 外觀」的字型、大小、粗體產生字體
+    /// 按鈕文字：再乘上「按鈕大小」
+    static func appButton(_ style: AppTextStyle) -> Font {
+        let s = AppSettings.shared
+        let w: Font.Weight = s.boldText ? .bold : .semibold
+        return .system(size: style.baseSize * s.textSize.scale * LayoutState.shared.scale * s.buttonSize.scale,
+                       weight: w, design: s.fontChoice.design)
+    }
+
     static func app(_ style: AppTextStyle) -> Font {
         let s = AppSettings.shared
         var weight = style.defaultWeight
@@ -101,7 +109,7 @@ extension Font {
             default: weight = .heavy
             }
         }
-        return .system(size: style.baseSize * s.textSize.scale, weight: weight, design: s.fontChoice.design)
+        return .system(size: style.baseSize * s.textSize.scale * LayoutState.shared.scale, weight: weight, design: s.fontChoice.design)
     }
 }
 
@@ -127,7 +135,7 @@ struct Card<Content: View>: View {
             }
             content
         }
-        .padding(22)
+        .padding(ui(22))
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -147,10 +155,10 @@ struct GradientButtonStyle: ButtonStyle {
     @State private var hovering = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.app(.headline))
+            .font(.appButton(.headline))
             .foregroundStyle(.white)
-            .padding(.horizontal, 24).padding(.vertical, 13)
-            .frame(minHeight: 44)
+            .padding(.horizontal, btn(24)).padding(.vertical, btn(13))
+            .frame(minHeight: btn(44))
             .background(AppSettings.shared.theme.gradient, in: Capsule())
             .shadow(color: AppSettings.shared.theme.color.opacity(enabled ? 0.35 : 0), radius: 8, y: 3)
             .brightness(hovering ? 0.06 : 0)
@@ -172,11 +180,11 @@ struct ChoiceTile: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 24 * AppSettings.shared.textSize.scale, weight: .semibold))
+                Image(systemName: icon).font(.system(size: ui(24) * AppSettings.shared.textSize.scale, weight: .semibold))
                 Text(title).font(.app(.headline))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 20)
+            .padding(.vertical, ui(20))
             .foregroundStyle(selected ? .white : .primary)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -201,7 +209,7 @@ struct Pill: View {
             Text(text)
         }
         .font(.app(.caption))
-        .padding(.horizontal, 10).padding(.vertical, 5)
+        .padding(.horizontal, ui(10)).padding(.vertical, ui(5))
         .background(Color.primary.opacity(0.07), in: Capsule())
     }
 }

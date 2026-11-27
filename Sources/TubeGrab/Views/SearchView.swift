@@ -4,6 +4,8 @@ import AppKit
 /// 側欄「搜尋歌曲」：輸入歌名 / 歌手，到 YouTube 搜尋
 struct SearchView: View {
 
+    /// 由側欄決定：「搜尋歌曲」或「用歌詞找歌」
+    var mode: SearchMode = .song
     @Bindable private var store = PageStores.search
     private var query: String { get { store.query } nonmutating set { store.query = newValue } }
     private var results: [YTDLP.SearchResult] { get { store.results } nonmutating set { store.results = newValue } }
@@ -19,7 +21,7 @@ struct SearchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 HeroInputBar(icon: store.mode == .lyrics ? "quote.bubble.fill" : "magnifyingglass",
-                             title: t("nav.search"),
+                             title: store.mode == .lyrics ? t("nav.lyrics") : t("nav.search"),
                              subtitle: store.mode == .lyrics ? t("search.lyricsSubtitle") : t("search.subtitle"),
                              placeholder: store.mode == .lyrics ? t("search.lyricsPlaceholder") : t("search.placeholder"),
                              fieldIcon: store.mode == .lyrics ? "text.quote" : "music.mic",
@@ -68,8 +70,8 @@ struct SearchView: View {
                     }
                 }
             }
-            .padding(36)
-            .frame(maxWidth: 1160, alignment: .leading)
+            .padding(ui(36))
+            .frame(maxWidth: .infinity, alignment: .leading)
             .frame(maxWidth: .infinity)
             .animation(.snappy(duration: 0.28), value: results.map(\.url))
         }
@@ -84,6 +86,7 @@ struct SearchView: View {
         .animation(.snappy(duration: 0.28), value: preview.current?.url)
         .overlay(alignment: .bottom) { ToastView(text: toast) }
         .onDisappear { preview.stop() }
+        .onAppear { if store.mode != mode { store.mode = mode; results = []; errorText = nil } }
         .task(id: router.pendingSearch) {
             if let q = router.pendingSearch {
                 router.pendingSearch = nil
@@ -96,8 +99,12 @@ struct SearchView: View {
     private func modeChip(_ m: SearchMode, _ title: String, _ icon: String) -> some View {
         let on = store.mode == m
         return Button {
+            guard store.mode != m else { return }
             store.mode = m
-            if !query.isEmpty { Task { await run(query) } }
+            results = []
+            // 側欄也跟著切到對應的項目
+            if !query.isEmpty { router.openSearch(query, lyrics: m == .lyrics) }
+            else { router.go(m == .lyrics ? .lyrics : .search) }
         } label: {
             Label(title, systemImage: icon)
                 .font(.app(.callout).weight(.semibold))

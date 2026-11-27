@@ -10,10 +10,10 @@ struct SoftButtonStyle: ButtonStyle {
         let destructive = configuration.role == .destructive
         let tint = destructive ? Color.red : AppSettings.shared.theme.color
         return configuration.label
-            .font(.app(.body).weight(.semibold))
+            .font(.appButton(.body))
             .foregroundStyle(tint)
-            .padding(.horizontal, 16).padding(.vertical, 9)
-            .frame(minHeight: 38)
+            .padding(.horizontal, btn(16)).padding(.vertical, btn(9))
+            .frame(minHeight: btn(38))
             .background(
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(tint.opacity(configuration.isPressed ? 0.26 : (hovering ? 0.18 : 0.11)))
@@ -39,10 +39,10 @@ struct HeroButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.app(.headline))
+            .font(.appButton(.headline))
             .foregroundStyle(primary ? AppSettings.shared.theme.color : .white)
-            .padding(.horizontal, primary ? 24 : 18).padding(.vertical, 14)
-            .frame(minHeight: 50)
+            .padding(.horizontal, btn(primary ? 24 : 18)).padding(.vertical, btn(14))
+            .frame(minHeight: btn(50))
             .background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(primary ? Color.white : Color.white.opacity(configuration.isPressed ? 0.34 : (hovering ? 0.3 : 0.22)))
@@ -72,15 +72,15 @@ struct HeroInputBar<Actions: View, Footer: View>: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
                 Image(systemName: icon)
-                    .font(.system(size: 24, weight: .bold)).foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
+                    .font(.system(size: ui(24), weight: .bold)).foregroundStyle(.white)
+                    .frame(width: ui(54), height: ui(54))
                     .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.app(.title)).foregroundStyle(.white)
                     Text(subtitle).font(.app(.callout)).foregroundStyle(.white.opacity(0.88))
                 }
             }
-            HStack(spacing: 10) {
+            AdaptiveStack(spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: fieldIcon).foregroundStyle(.secondary)
                     TextField(placeholder, text: $text)
@@ -91,14 +91,14 @@ struct HeroInputBar<Actions: View, Footer: View>: View {
                             .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 16).padding(.vertical, 15)
+                .padding(.horizontal, ui(16)).padding(.vertical, ui(15))
                 .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                actions
+                HStack(spacing: 10) { actions }
             }
             footer
         }
-        .padding(22)
-        .background(theme.gradient, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .padding(ui(22))
+        .background(theme.gradient, in: RoundedRectangle(cornerRadius: ui(22), style: .continuous))
         .shadow(color: theme.color.opacity(0.3), radius: 10, y: 5)
     }
 }

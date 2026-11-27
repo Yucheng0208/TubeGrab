@@ -53,28 +53,65 @@ enum LyricsService {
             if let j = await getJSON(c.url!) as? [String: Any], let l = parse(j), l.hasAny { return l }
         }
 
-        // 2. 搜尋：先用歌名＋歌手欄位，再用整串關鍵字
-        var candidates: [[String: Any]] = []
-        var c = URLComponents(string: "https://lrclib.net/api/search")!
-        c.queryItems = [.init(name: "track_name", value: t)]
-        if !a.isEmpty { c.queryItems?.append(.init(name: "artist_name", value: a)) }
-        candidates = (await getJSON(c.url!) as? [[String: Any]]) ?? []
-        // 影片標題常是「歌手 English【歌名 English】Official MV」：依序試幾種整理過的關鍵字
-        for q in fallbackQueries(title: t, artist: a) where candidates.isEmpty {
-            var u = URLComponents(string: "https://lrclib.net/api/search")!
-            u.queryItems = [.init(name: "q", value: q)]
-            candidates = (await getJSON(u.url!) as? [[String: Any]]) ?? []
+        // 2. 搜尋：資料庫裡中文歌有的是繁體、有的是簡體，兩種都試；
+        //    找到「歌手相符」的結果就停，避免發太多請求
+        let tS = toSimplified(t), aS = toSimplified(a), tT = toTraditional(t), aT = toTraditional(a)
+        var searches: [[URLQueryItem]] = []
+        func add(_ items: [URLQueryItem]) {
+            if !searches.contains(where: { $0 == items }) { searches.append(items) }
         }
-        let parsed = candidates.compactMap(parse).filter(\.hasAny)
-        guard !parsed.isEmpty else { return nil }
-        // 有同步歌詞的優先，其次長度最接近
-        return parsed.min { l, r in
+        for (tt, aa) in [(t, a), (tS, aS), (tT, aT)] {
+            var items = [URLQueryItem(name: "track_name", value: tt)]
+            if !aa.isEmpty { items.append(.init(name: "artist_name", value: aa)) }
+            add(items)
+        }
+        for q in fallbackQueries(title: t, artist: a) {
+            add([.init(name: "q", value: q)])
+            add([.init(name: "q", value: toSimplified(q))])
+        }
+        // 最後：只用歌名找，再用歌手過濾
+        add([.init(name: "track_name", value: tS)])
+        add([.init(name: "track_name", value: tT)])
+
+        var all: [Lyrics] = []
+        for items in searches {
+            var u = URLComponents(string: "https://lrclib.net/api/search")!
+            u.queryItems = items
+            let found = ((await getJSON(u.url!) as? [[String: Any]]) ?? []).compactMap(parse).filter(\.hasAny)
+            all += found
+            if let best = pick(all, artist: a, duration: duration), artistMatches(best.artistName, a) {
+                if duration <= 0 || abs(best.duration - duration) <= 8 { return best }
+            }
+        }
+        return pick(all, artist: a, duration: duration, requireArtist: !a.isEmpty)
+    }
+
+    /// 從候選中挑最好的：歌手相符 → 有同步歌詞 → 長度最接近
+    private static func pick(_ list: [Lyrics], artist: String, duration: Double, requireArtist: Bool = false) -> Lyrics? {
+        let pool = requireArtist ? list.filter { artistMatches($0.artistName, artist) } : list
+        return pool.min { l, r in
+            let la = artistMatches(l.artistName, artist) ? 0 : 1, ra = artistMatches(r.artistName, artist) ? 0 : 1
+            if la != ra { return la < ra }
             let ls = (l.synced ?? "").isEmpty ? 1 : 0, rs = (r.synced ?? "").isEmpty ? 1 : 0
             if ls != rs { return ls < rs }
             guard duration > 0 else { return false }
             return abs(l.duration - duration) < abs(r.duration - duration)
         }
     }
+
+    /// 歌手是否相符（不分繁簡、大小寫、空白；多位歌手只要有一位相符）
+    static func artistMatches(_ found: String, _ wanted: String) -> Bool {
+        guard !wanted.isEmpty else { return true }
+        func norm(_ s: String) -> String {
+            toSimplified(s).lowercased().filter { !$0.isWhitespace && !$0.isPunctuation }
+        }
+        let f = norm(found)
+        let parts = wanted.split(whereSeparator: { ",、&/;".contains($0) }).map { norm(String($0)) }.filter { !$0.isEmpty }
+        return parts.contains { !f.isEmpty && (f.contains($0) || $0.contains(f)) }
+    }
+
+    static func toSimplified(_ s: String) -> String { s.applyingTransform(StringTransform("Hant-Hans"), reverse: false) ?? s }
+    static func toTraditional(_ s: String) -> String { s.applyingTransform(StringTransform("Hans-Hant"), reverse: false) ?? s }
 
     /// 搜尋用的備用關鍵字：整理過的標題 →【】裡的歌名 → 只留中日韓文字 → 只留英文
     static func fallbackQueries(title: String, artist: String) -> [String] {

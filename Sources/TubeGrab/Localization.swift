@@ -84,8 +84,11 @@ enum L10n {
         "side.hide": ["隱藏側欄（⌃⌘S）", "隐藏侧栏（⌃⌘S）", "Hide sidebar (⌃⌘S)", "サイドバーを隠す（⌃⌘S）", "사이드바 숨기기 (⌃⌘S)"],
         "side.show": ["顯示側欄（⌃⌘S）", "显示侧栏（⌃⌘S）", "Show sidebar (⌃⌘S)", "サイドバーを表示（⌃⌘S）", "사이드바 보기 (⌃⌘S)"],
 
+        "nav.lyrics": ["用歌詞找歌", "用歌词找歌", "Find by Lyrics", "歌詞で探す", "가사로 찾기"],
+        "new.searchAs": ["要怎麼搜尋？", "要怎么搜索？", "Search by:", "検索方法：", "검색 방법:"],
+
         // 新增下載
-        "new.placeholder": ["貼上網址，或輸入歌名 / 歌手搜尋", "粘贴链接，或输入歌名 / 歌手搜索", "Paste a link, or type a song / artist to search", "URL を貼るか、曲名・アーティストで検索", "주소를 붙여넣거나 곡명 / 가수로 검색"],
+        "new.placeholder": ["貼上網址，或輸入歌名、歌手、歌詞來搜尋", "粘贴链接，或输入歌名、歌手、歌词来搜索", "Paste a link, or type a song, artist or lyrics to search", "URL を貼るか、曲名・アーティスト・歌詞で検索", "주소를 붙여넣거나 곡명·가수·가사로 검색"],
         "new.paste": ["貼上", "粘贴", "Paste", "貼り付け", "붙여넣기"],
         "new.analyze": ["讀取", "读取", "Load", "読み込む", "불러오기"],
         "new.loading": ["讀取中…", "读取中…", "Loading…", "読み込み中…", "불러오는 중…"],
@@ -392,6 +395,32 @@ enum L10n {
         "imp.dropNow": ["放開以匯入歌單", "松开以导入歌单", "Drop to import the list", "ドロップして読み込む", "놓으면 가져옵니다"],
         "imp.empty": ["這個檔案裡找不到歌曲", "这个文件里找不到歌曲", "No songs found in this file", "このファイルに曲が見つかりません", "이 파일에서 곡을 찾지 못했습니다"],
         "imp.badFile": ["無法讀取這個檔案", "无法读取这个文件", "Couldn’t read this file", "ファイルを読み込めません", "파일을 읽을 수 없습니다"],
+
+        "look.buttonSize": ["按鈕大小", "按钮大小", "Button size", "ボタンの大きさ", "버튼 크기"],
+        "look.zoom": ["介面比例", "界面比例", "Interface scale", "表示倍率", "화면 배율"],
+        "look.autoScale": ["跟著視窗大小縮放", "跟着窗口大小缩放", "Scale with window size", "ウインドウに合わせて拡大縮小", "창 크기에 맞춰 확대/축소"],
+        "look.autoScaleHint": ["視窗拉大時文字、按鈕一起變大；縮小時一起變小", "窗口拉大时文字、按钮一起变大；缩小时一起变小", "Text and buttons grow and shrink with the window", "ウインドウの大きさに合わせて文字とボタンも変わります", "창 크기에 따라 글자와 버튼 크기도 바뀝니다"],
+        "zoom.in": ["放大介面", "放大界面", "Zoom In", "拡大", "확대"],
+        "zoom.out": ["縮小介面", "缩小界面", "Zoom Out", "縮小", "축소"],
+        "zoom.reset": ["實際大小", "实际大小", "Actual Size", "実際のサイズ", "실제 크기"],
+
+        "up2.title": ["檢查更新", "检查更新", "Updates", "アップデート", "업데이트"],
+        "up2.lastChecked": ["上次檢查：", "上次检查：", "Last checked", "前回の確認：", "마지막 확인:"],
+        "up2.idle": ["尚未檢查", "尚未检查", "Not checked yet", "未確認", "아직 확인 안 함"],
+        "up2.checking": ["正在檢查…", "正在检查…", "Checking…", "確認中…", "확인 중…"],
+        "up2.latest": ["已經是最新版本", "已经是最新版本", "You’re up to date", "最新バージョンです", "최신 버전입니다"],
+        "up2.noReleases": ["GitHub 上還沒有發佈版本", "GitHub 上还没有发布版本", "No releases on GitHub yet", "GitHub にまだリリースがありません", "GitHub에 아직 릴리스가 없습니다"],
+        "up2.newVersion": ["有新版本 %@", "有新版本 %@", "Version %@ is available", "新しいバージョン %@ があります", "새 버전 %@ 이(가) 있습니다"],
+        "up2.failed": ["檢查失敗：", "检查失败：", "Check failed:", "確認に失敗：", "확인 실패:"],
+        "up2.checkNow": ["檢查更新", "检查更新", "Check now", "今すぐ確認", "지금 확인"],
+        "up2.view": ["查看更新", "查看更新", "View update", "更新を見る", "업데이트 보기"],
+        "up2.auto": ["啟動時自動檢查（一天一次）", "启动时自动检查（一天一次）", "Check automatically at launch (once a day)", "起動時に自動確認（1日1回）", "실행 시 자동 확인 (하루 한 번)"],
+        "up2.available": ["有新版本可以更新", "有新版本可以更新", "A new version is available", "新しいバージョンがあります", "새 버전이 있습니다"],
+        "up2.notes": ["更新內容", "更新内容", "What’s new", "更新内容", "새로운 기능"],
+        "up2.howto": ["按「下載更新」會用瀏覽器下載新版 .dmg；打開後把 TubeGrab 拖到「應用程式」取代舊版即可，設定會保留。", "点「下载更新」会用浏览器下载新版 .dmg；打开后把 TubeGrab 拖到「应用程序」替换旧版即可，设置会保留。", "Download update opens the new .dmg in your browser; drag TubeGrab to Applications to replace the old one. Your settings are kept.", "「アップデートをダウンロード」で新しい .dmg を取得し、TubeGrab を「アプリケーション」にドラッグして置き換えてください。設定は保持されます。", "‘업데이트 다운로드’로 새 .dmg를 받은 뒤 TubeGrab을 ‘응용 프로그램’으로 끌어 교체하세요. 설정은 유지됩니다."],
+        "up2.skip": ["略過這個版本", "跳过这个版本", "Skip this version", "このバージョンをスキップ", "이 버전 건너뛰기"],
+        "up2.later": ["稍後提醒", "稍后提醒", "Remind me later", "後で通知", "나중에 알림"],
+        "up2.download": ["下載更新", "下载更新", "Download update", "アップデートをダウンロード", "업데이트 다운로드"],
 
         // 錯誤
         "err.noYtdlp": ["找不到 yt-dlp。請先在「終端機」執行：brew install yt-dlp ffmpeg", "找不到 yt-dlp。请先在「终端」执行：brew install yt-dlp ffmpeg", "yt-dlp not found. In Terminal run: brew install yt-dlp ffmpeg", "yt-dlp が見つかりません。ターミナルで brew install yt-dlp ffmpeg を実行してください", "yt-dlp를 찾을 수 없습니다. 터미널에서 brew install yt-dlp ffmpeg 를 실행하세요"],
