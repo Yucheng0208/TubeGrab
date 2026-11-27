@@ -4,7 +4,7 @@ import AppKit
 /// App 基本資訊。開好 GitHub Repo 後，把 repoURL 換成你的網址即可。
 enum AppInfo {
     static let name = "TubeGrab"
-    static let repoURL = "https://github.com/YOUR-ACCOUNT/TubeGrab-macOS"
+    static let repoURL = "https://github.com/Yucheng0208/Tube-Grab"
     static var hasRepo: Bool { !repoURL.contains("YOUR-ACCOUNT") }
 
     static var version: String {
@@ -26,22 +26,17 @@ struct AboutView: View {
                 credits
                 links
             }
-            .padding(28)
-            .frame(maxWidth: 760)
+            .padding(36)
+            .frame(maxWidth: 920)
             .frame(maxWidth: .infinity)
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(t("nav.about"))
         .task { await loadVersions() }
     }
 
     private var header: some View {
         VStack(spacing: 12) {
-            Image(systemName: "arrow.down.to.line.compact")
-                .font(.system(size: 44, weight: .bold)).foregroundStyle(.white)
-                .frame(width: 96, height: 96)
-                .background(theme.gradient, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .shadow(color: theme.color.opacity(0.4), radius: 16, y: 6)
+            AppLogo(size: 110)
             Text(AppInfo.name).font(.app(.largeTitle))
             Text("\(t("about.version")) \(AppInfo.version)").font(.app(.callout)).foregroundStyle(.secondary)
             Text(t("about.desc")).font(.app(.body)).multilineTextAlignment(.center)
@@ -81,22 +76,28 @@ struct AboutView: View {
     }
 
     private var links: some View {
-        HStack(spacing: 12) {
-            Button {
-                NSWorkspace.shared.open(URL(string: AppInfo.repoURL)!)
-            } label: {
-                Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+        Card(title: t("fb.title"), icon: "bubble.left.and.exclamationmark.bubble.right.fill") {
+            Text(t("fb.desc")).font(.app(.callout)).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Button { Feedback.open(.bug) } label: {
+                    Label(t("fb.bug"), systemImage: "ladybug.fill")
+                }
+                .buttonStyle(GradientButtonStyle())
+                Button { Feedback.open(.idea) } label: {
+                    Label(t("fb.idea"), systemImage: "lightbulb.fill")
+                }
+                Button { NSWorkspace.shared.open(URL(string: AppInfo.repoURL + "/issues")!) } label: {
+                    Label(t("fb.existing"), systemImage: "list.bullet.rectangle")
+                }
+                Spacer()
+                Button { NSWorkspace.shared.open(URL(string: AppInfo.repoURL)!) } label: {
+                    Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+                }
+                .help(AppInfo.repoURL)
             }
-            .buttonStyle(GradientButtonStyle())
-            .disabled(!AppInfo.hasRepo)
-            .help(AppInfo.hasRepo ? AppInfo.repoURL : t("about.repoSoon"))
-
-            Button {
-                NSWorkspace.shared.open(URL(string: AppInfo.hasRepo ? AppInfo.repoURL + "/issues" : "https://github.com")!)
-            } label: { Label(t("about.feedback"), systemImage: "bubble.left.and.exclamationmark.bubble.right") }
             .disabled(!AppInfo.hasRepo)
         }
-        .padding(.top, 4)
     }
 
     /// 顯示目前安裝的外部工具版本

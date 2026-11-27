@@ -5,9 +5,16 @@ enum YTDLP {
     static var exe: String { AppSettings.shared.ytdlpPath }
     static var ffmpeg: String { AppSettings.shared.ffmpegPath }
 
-    private static var commonArgs: [String] {
+    static var commonArgs: [String] {
         var a = ["--no-warnings"]
         if !ffmpeg.isEmpty { a += ["--ffmpeg-location", ffmpeg] }
+        // 使用瀏覽器裡的 YouTube 登入狀態，避免「Sign in to confirm you’re not a bot」
+        // 讀不到（macOS 沒授權、檔案不存在）就不加，避免每次下載都失敗
+        let s = AppSettings.shared
+        if s.useBrowserCookies, !s.cookieBrowser.isEmpty, CookieBrowser.access(s.cookieBrowser) == .ok {
+            if s.cookieBrowser == "file" { a += ["--cookies", s.cookiesFile] }
+            else { a += ["--cookies-from-browser", s.cookieBrowser] }
+        }
         return a
     }
 
@@ -210,7 +217,32 @@ enum YTDLP {
 
     static func lastErrorLine(_ stderr: String) -> String {
         let lines = stderr.split(separator: "\n").map(String.init)
-        return lines.last(where: { $0.contains("ERROR") }) ?? lines.last ?? "Unknown error"
+        let line = lines.last(where: { $0.contains("ERROR") }) ?? lines.last ?? "Unknown error"
+        // 常見錯誤換成看得懂的說明
+        if line.contains("Sign in to confirm") || line.contains("not a bot") {
+            // 有開瀏覽器登入卻讀不到 → 說明原因
+            let s = AppSettings.shared
+            if s.useBrowserCookies, CookieBrowser.access(s.cookieBrowser) == .denied { return t("err.cookiePerm") }
+            return t("err.botCheck")
+        }
+        if line.contains("cookies database") || (line.contains("cookie") && line.contains("Operation not permitted")) {
+            return CookieBrowser.access(AppSettings.shared.cookieBrowser) == .denied ? t("err.cookiePerm") : t("err.cookieMissing")
+        }
+        if line.contains("Failed to decrypt") || line.contains("keyring") { return t("err.cookieKeychain") }
+        if line.contains("HTTP Error 403") { return t("err.forbidden") }
+        if line.contains("Private video") || line.contains("This video is private") { return t("err.private") }
+        if line.contains("Video unavailable") { return t("err.unavailable") }
+        return line
+    }
+
+    /// 試聽用：取得音訊串流網址（m4a，AVPlayer 可直接播放）
+    static func audioStreamURL(_ url: String) async throws -> URL {
+        let args = commonArgs + ["--no-playlist", "-g", "-f", "ba[ext=m4a]/ba[acodec^=mp4a]/b[ext=mp4]/ba/b", url]
+        let r = try await ProcessRunner.run(exe, args)
+        guard r.status == 0, let line = r.stdout.split(separator: "\n").first, let u = URL(string: String(line)) else {
+            throw ToolError(message: lastErrorLine(r.stderr))
+        }
+        return u
     }
 
     static func selfUpdate() async -> String {

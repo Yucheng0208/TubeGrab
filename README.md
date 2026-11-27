@@ -1,7 +1,7 @@
 # TubeGrab — macOS 影片／音樂下載工具（SwiftUI 範例專案）
 
 > [!WARNING]
-> **本專案僅供教學與程式範例用途。**
+> **免責聲明：本專案僅供教學與程式範例用途。**
 > 請只下載你本人擁有著作權、已取得授權，或明確允許下載的內容（例如創用 CC、公有領域、你自己上傳的影片）。
 > 下載 YouTube、Spotify、Apple Music、KKBOX 等平台的內容可能違反其服務條款及當地著作權法，使用者須自行承擔一切責任。
 > 作者不提供任何保證，也不鼓勵任何侵權行為。本程式不會繞過任何 DRM（Spotify / Apple Music / KKBOX 只讀取「歌名與歌手」清單，再到 YouTube 搜尋公開影片）。
@@ -28,6 +28,7 @@
 | 播放清單批次下載 | YouTube 播放清單、Spotify / Apple Music / KKBOX 歌單或專輯，列出所有歌曲後勾選、一次自動下載 |
 | 貼上歌單文字 | 從任何平台（KKBOX、LINE MUSIC、Excel…）複製「每行一首」的清單也能批次下載 |
 | 選歌規則 | 優先選唱片公司 / 官方頻道（`- Topic`、VEVO、唱片公司、歌手官方頻道），找不到才選觀看次數最高的 |
+| 歌詞 | 音樂可一併下載歌詞（LRCLIB）：存成 .lrc 同步歌詞檔、寫入歌曲檔案（Apple Music 可顯示），可自動轉換繁簡；修剪時同步歌詞的時間會跟著調整 |
 | 音訊工具 | 左/右聲道、左右互換、單聲道、左右平衡、**去除人聲（卡拉 OK）**、音量、音量標準化、升降 Key、變速、淡入淡出 |
 | 畫質提升 | 360p / 720p / 1080p 放大為 1080p / 1440p / 4K（降噪 + Lanczos + 銳化，使用 Mac 硬體 HEVC 編碼） |
 | 五種語言 | 繁體中文、简体中文、English、日本語、한국어（設定中即時切換） |
@@ -68,6 +69,39 @@ brew install yt-dlp ffmpeg deno
 
 ---
 
+## 下載與安裝（給使用者）
+
+到 GitHub 的 **Releases** 下載 `TubeGrab-版本-macOS.dmg`（或 `.zip`）：
+
+1. 打開 `.dmg`，把 **TubeGrab** 拖到 **Applications（應用程式）**。
+2. 第一次打開：在「應用程式」資料夾對 TubeGrab **按右鍵 →「打開」→ 再按「打開」**。
+   本程式沒有經過 Apple 公證（需要付費的開發者帳號），所以 macOS 第一次會詢問，之後就能直接雙擊。
+3. 若出現「已損毀，無法打開」，打開「終端機」執行：
+
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/TubeGrab.app
+   ```
+
+4. 打開後若看到「需要安裝下載工具」，按「一鍵安裝」。
+
+需求：macOS 14 Sonoma 以上，Apple Silicon 與 Intel Mac 皆可。
+
+## 打包發佈（給開發者）
+
+```bash
+./scripts/package.sh 1.0
+```
+
+會在 `dist/` 產生（已加入 `.gitignore`，不會被提交）：
+
+| 檔案 | 說明 |
+|---|---|
+| `TubeGrab-1.0-macOS.dmg` | 安裝映像：拖到「應用程式」即可，內附安裝說明 |
+| `TubeGrab-1.0-macOS.zip` | 壓縮檔版本 |
+| `SHA256SUMS.txt` | 檔案校驗碼 |
+
+App 同時支援 Apple Silicon 與 Intel（universal），最低 macOS 14。把 `.dmg` 與 `.zip` 上傳到 GitHub Releases 即可。
+
 ## 編譯與執行
 
 直接執行（開發用）：
@@ -82,6 +116,14 @@ swift run
 ./scripts/build-app.sh
 ```
 
+更換 App 圖示：把新的圖片存成 `assets/logo-source.png`（任何背景都可以，程式會自動找出圓角方塊並裁掉背景與光暈），再執行：
+
+```bash
+swift scripts/make-icon.swift
+```
+
+會產生 `assets/AppIcon.png` 與 `assets/AppIcon.icns`，下次 `./scripts/build-app.sh` 時自動放進 App。
+
 用 Xcode 開啟：
 
 ```bash
@@ -93,6 +135,24 @@ open Package.swift
 ---
 
 ## 使用方式
+
+側欄分成三組：
+
+| 群組 | 頁面 | 用途 |
+|---|---|---|
+| 下載 | 新增下載 | 貼上單一影片網址，設定格式、預覽、修剪、修改資訊後下載 |
+| | 搜尋歌曲 | 輸入歌名或歌手，到 YouTube 找最適合的版本 |
+| | 歌單批次下載 | YouTube 播放清單、Spotify、Apple Music、KKBOX 或文字歌單，一次下載 |
+| | 下載清單 | 查看進度、取消、重試、移除、打開檔案 |
+| 設定 | 外觀 | 深色 / 淺色 / 系統、主題配色、字型、字體大小、粗體 |
+| | 偏好設定 | 介面語言、儲存位置、同時下載數、外部工具、API 金鑰 |
+| 支援 | 說明 | 各功能的操作步驟（五種語言，可搜尋，並可直接跳到該功能） |
+| | 關於 | 版本、使用聲明、開源致謝、GitHub 連結 |
+
+在任何輸入框貼上的內容會自動送到對的頁面：單一影片 → 新增下載、歌單網址 → 歌單批次下載、文字 → 搜尋歌曲。
+切換到別的頁面時，「新增下載」「搜尋歌曲」「歌單批次下載」的內容會保留。
+
+### 基本流程
 
 1. **貼上網址**（YouTube 影片、YouTube 播放清單、Spotify / Apple Music / KKBOX 歌單或專輯），或直接**打歌名 / 歌手**
 2. 按「讀取」（打字時按鈕會變成「搜尋」）
@@ -161,9 +221,13 @@ logos/kkbox.png   logos/spotify.png   logos/youtube.png   logos/applemusic.png
 
 ```text
 Package.swift
-scripts/build-app.sh            # 打包成 .app
+scripts/build-app.sh            # 打包成 .app（--universal 同時支援 Intel）
+scripts/package.sh              # 產生發佈用的 .dmg / .zip
+scripts/make-icon.swift         # 由 assets/logo-source.png 產生 App 圖示
+assets/                         # App 圖示原圖與產生的 AppIcon.png / AppIcon.icns
 Sources/TubeGrab/
 ├── App.swift                   # App 進入點、側邊欄、外觀套用
+├── Router.swift                # 側欄頁面與頁面之間的轉交
 ├── Models.swift                # 設定（UserDefaults）、下載選項、歌曲資訊
 ├── Localization.swift          # 五種語言翻譯表
 ├── Theme.swift                 # 深淺色、主題色、字型、卡片 / 按鈕樣式
@@ -174,13 +238,18 @@ Sources/TubeGrab/
 ├── AudioTools.swift            # 音訊效果、畫質提升、畫面比例（ffmpeg 濾鏡）
 ├── PreviewRenderer.swift       # 「套用設定後」預覽片段的產生
 ├── MetadataLookup.swift        # 網路歌曲資訊查詢（iTunes Search API）
+├── LyricsService.swift         # 歌詞查詢（LRCLIB）、.lrc、寫入 MP3 USLT / 其他格式標籤
 ├── DownloadManager.swift       # 下載佇列、進度計算
 │   （AboutView.swift 裡的 AppInfo.repoURL：開好 GitHub Repo 後改成你的網址）
 └── Views/
-    ├── NewDownloadView.swift   # 主畫面：網址/搜尋、選項、歌曲資訊、歌單
+    ├── NewDownloadView.swift   # 新增下載：網址、選項、歌曲資訊
+    ├── SearchView.swift        # 搜尋歌曲
+    ├── BatchView.swift         # 歌單批次下載
+    ├── AppearanceView.swift    # 外觀
+    ├── HelpView.swift          # 說明（五種語言的操作步驟）
     ├── PreviewTrimView.swift   # 預覽播放器 + 修剪
     ├── QueueView.swift         # 下載清單 + 進度條
-    ├── SettingsView.swift      # 設定
+    ├── SettingsView.swift      # 偏好設定
     └── AboutView.swift         # 關於：版本、聲明、開源致謝、GitHub 連結
 ```
 

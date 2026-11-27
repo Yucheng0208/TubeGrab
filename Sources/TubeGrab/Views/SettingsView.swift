@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import AppKit
 
 struct SettingsView: View {
@@ -14,65 +15,7 @@ struct SettingsView: View {
                 } label: { Label(t("set.language"), systemImage: "globe") }
             }
 
-            Section {
-                // 深色 / 淺色 / 跟隨系統
-                LabeledContent {
-                    Picker("", selection: $s.appearance) {
-                        ForEach(AppearanceMode.allCases) { m in
-                            Label(t(m.labelKey), systemImage: m.icon).tag(m)
-                        }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
-                } label: { Label(t("look.mode"), systemImage: "circle.lefthalf.filled") }
 
-                // 主題配色色票
-                LabeledContent {
-                    HStack(spacing: 10) {
-                        ForEach(AccentTheme.allCases) { th in
-                            Button { s.theme = th } label: {
-                                Circle().fill(th.gradient)
-                                    .frame(width: 26, height: 26)
-                                    .overlay(Circle().strokeBorder(.white, lineWidth: s.theme == th ? 3 : 0))
-                                    .overlay(Circle().strokeBorder(th.color, lineWidth: s.theme == th ? 1.5 : 0).padding(-3))
-                                    .shadow(color: th.color.opacity(0.4), radius: s.theme == th ? 4 : 0)
-                            }
-                            .buttonStyle(.plain)
-                            .help(t(th.labelKey))
-                        }
-                    }
-                } label: { Label(t("look.theme"), systemImage: "paintpalette") }
-
-                Picker(selection: $s.fontChoice) {
-                    ForEach(FontChoice.allCases) { f in
-                        Text(t(f.labelKey)).font(.system(size: 13, design: f.design)).tag(f)
-                    }
-                } label: { Label(t("look.font"), systemImage: "textformat") }
-
-                LabeledContent {
-                    Picker("", selection: $s.textSize) {
-                        ForEach(TextSize.allCases) { Text(t($0.labelKey)).tag($0) }
-                    }
-                    .pickerStyle(.segmented).labelsHidden().frame(maxWidth: 320)
-                } label: { Label(t("look.size"), systemImage: "textformat.size") }
-
-                Toggle(isOn: $s.boldText) { Label(t("look.bold"), systemImage: "bold") }
-                    .toggleStyle(.switch)
-
-                // 即時預覽
-                HStack(spacing: 12) {
-                    Image(systemName: "music.note")
-                        .font(.system(size: 18, weight: .bold)).foregroundStyle(.white)
-                        .frame(width: 40, height: 40)
-                        .background(s.theme.gradient, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("TubeGrab").font(.app(.title3).weight(.bold))
-                        Text(t("look.preview")).font(.app(.body)).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    GradientProgressBar(value: 0.62, height: 8).frame(width: 120)
-                }
-                .padding(.vertical, 4)
-            } header: { Text(t("look.section")) }
 
             Section {
                 LabeledContent(t("set.output")) {
@@ -81,7 +24,14 @@ struct SettingsView: View {
                         Button(t("set.choose")) { chooseFolder() }
                     }
                 }
-                Stepper("\(t("set.concurrent")): \(s.maxConcurrent)", value: $s.maxConcurrent, in: 1...5)
+                Picker(selection: $s.maxConcurrent) {
+                    Text(t("set.unlimited")).tag(0)
+                    ForEach([1, 2, 3, 5, 10], id: \.self) { Text("\($0)").tag($0) }
+                } label: { Label(t("set.concurrent"), systemImage: "square.stack.3d.down.right") }
+                if s.maxConcurrent == 0 || s.maxConcurrent > 5 {
+                    Label(t("set.concurrentWarn"), systemImage: "info.circle")
+                        .font(.app(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
             }
 
             Section(t("set.tools")) {
@@ -95,7 +45,7 @@ struct SettingsView: View {
                     }
                     .disabled(ToolInstaller.shared.isInstalling)
                     if ToolInstaller.shared.isInstalling {
-                        GradientProgressBar(value: ToolInstaller.shared.progress, height: 8).frame(width: 160)
+                        GradientProgressBar(value: ToolInstaller.shared.progress, height: 8, showsPercent: true).frame(width: 220)
                     }
                 }
                 if !ToolInstaller.shared.log.isEmpty {
@@ -118,6 +68,29 @@ struct SettingsView: View {
                 }
             }
 
+            Section(t("ck.title")) {
+                Toggle(isOn: $s.useBrowserCookies) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(t("ck.toggle")).font(.app(.body).weight(.semibold))
+                        Text(t("ck.desc")).font(.app(.caption)).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .toggleStyle(.switch)
+                Picker(t("ck.browser"), selection: $s.cookieBrowser) {
+                    ForEach(CookieBrowser.all, id: \.id) { b in
+                        let ok = NSWorkspace.shared.urlForApplication(withBundleIdentifier: b.bundle) != nil
+                        Text(ok ? b.name : "\(b.name) (\(t("ck.notInstalled")))").tag(b.id)
+                    }
+                    Divider()
+                    Text(t("ck.fileOption")).tag("file")
+                }
+                .disabled(!s.useBrowserCookies)
+                if s.useBrowserCookies {
+                    cookieStatus
+                }
+            }
+
             Section(t("set.kkbox")) {
                 TextField("Client ID", text: $s.kkboxClientID)
                 SecureField("Client Secret", text: $s.kkboxClientSecret)
@@ -133,7 +106,61 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .navigationTitle(t("nav.settings"))
+    }
+
+    // MARK: YouTube 登入狀態
+
+    @State private var accessTick = 0
+
+    @ViewBuilder private var cookieStatus: some View {
+        let _ = accessTick
+        let access = CookieBrowser.access(s.cookieBrowser)
+        if s.cookieBrowser == "file" {
+            HStack {
+                Text(s.cookiesFile.isEmpty ? t("ck.noFile") : s.cookiesFile)
+                    .lineLimit(1).truncationMode(.middle).foregroundStyle(.secondary)
+                Spacer()
+                Button(t("set.choose")) { chooseCookiesFile() }
+            }
+            Label(t("ck.fileHint"), systemImage: "info.circle")
+                .font(.app(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        } else {
+            switch access {
+            case .ok:
+                Label(t("ck.statusOK"), systemImage: "checkmark.circle.fill")
+                    .font(.app(.callout)).foregroundStyle(.green)
+                Label(s.cookieBrowser == "safari" ? t("ck.safariNote") : t("ck.keychainNote"), systemImage: "info.circle")
+                    .font(.app(.caption)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            case .denied:
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(t("ck.statusDenied"), systemImage: "lock.fill")
+                        .font(.app(.callout).weight(.semibold)).foregroundStyle(.orange)
+                    Text(t("ck.fdaSteps")).font(.app(.caption)).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    HStack {
+                        Button { CookieBrowser.openFullDiskAccessSettings() } label: {
+                            Label(t("ck.openFDA"), systemImage: "gearshape")
+                        }
+                        .buttonStyle(GradientButtonStyle())
+                        Button { NSWorkspace.shared.activateFileViewerSelecting([Bundle.main.bundleURL]) } label: {
+                            Label(t("ck.showApp"), systemImage: "folder")
+                        }
+                        Button(t("ck.recheck")) { accessTick += 1 }
+                    }
+                }
+            case .missing:
+                Label(t("ck.statusMissing"), systemImage: "questionmark.circle")
+                    .font(.app(.callout)).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func chooseCookiesFile() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.plainText, .data]
+        if panel.runModal() == .OK, let u = panel.url { s.cookiesFile = u.path }
     }
 
     private func toolRow(_ title: String, path: Binding<String>, name: String) -> some View {

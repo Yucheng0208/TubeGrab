@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Observation
 
 // MARK: - App 設定
@@ -13,9 +14,16 @@ final class AppSettings {
     var outputFolder: URL { didSet { d.set(outputFolder.path, forKey: "outputFolder") } }
     var ytdlpPath: String { didSet { d.set(ytdlpPath, forKey: "ytdlpPath") } }
     var ffmpegPath: String { didSet { d.set(ffmpegPath, forKey: "ffmpegPath") } }
-    var maxConcurrent: Int { didSet { d.set(maxConcurrent, forKey: "maxConcurrent") } }
+    /// 同時下載數量；0 = 不限制
+    var maxConcurrent: Int { didSet { d.set(maxConcurrent, forKey: "maxConcurrentV2") } }
     var spotifyClientID: String { didSet { d.set(spotifyClientID, forKey: "spotifyClientID") } }
     var spotifyClientSecret: String { didSet { d.set(spotifyClientSecret, forKey: "spotifyClientSecret") } }
+
+    /// 讓 yt-dlp 使用瀏覽器的 YouTube 登入（cookies 只留在這台 Mac，由 yt-dlp 直接傳給 YouTube）
+    var useBrowserCookies: Bool { didSet { d.set(useBrowserCookies, forKey: "useBrowserCookies") } }
+    var cookieBrowser: String { didSet { d.set(cookieBrowser, forKey: "cookieBrowser") } }
+    /// cookieBrowser == "file" 時使用的 cookies.txt 路徑
+    var cookiesFile: String { didSet { d.set(cookiesFile, forKey: "cookiesFile") } }
 
     var kkboxClientID: String { didSet { d.set(kkboxClientID, forKey: "kkboxClientID") } }
     var kkboxClientSecret: String { didSet { d.set(kkboxClientSecret, forKey: "kkboxClientSecret") } }
@@ -26,6 +34,11 @@ final class AppSettings {
     var fontChoice: FontChoice { didSet { d.set(fontChoice.rawValue, forKey: "fontChoice") } }
     var textSize: TextSize { didSet { d.set(textSize.rawValue, forKey: "textSize") } }
     var boldText: Bool { didSet { d.set(boldText, forKey: "boldText") } }
+    /// 自訂主題的兩個顏色（#RRGGBB）、是否使用漸層、漸層方向
+    var customColorA: String { didSet { d.set(customColorA, forKey: "customColorA") } }
+    var customColorB: String { didSet { d.set(customColorB, forKey: "customColorB") } }
+    var useGradient: Bool { didSet { d.set(useGradient, forKey: "useGradient") } }
+    var gradientDirection: GradientDirection { didSet { d.set(gradientDirection.rawValue, forKey: "gradientDirection") } }
 
     private init() {
         language = AppLanguage(rawValue: d.string(forKey: "language") ?? "") ?? .system
@@ -41,10 +54,13 @@ final class AppSettings {
         else { ytdlpPath = ToolLocator.find("yt-dlp") ?? "" }
         if let p = d.string(forKey: "ffmpegPath"), fm.isExecutableFile(atPath: p) { ffmpegPath = p }
         else { ffmpegPath = ToolLocator.find("ffmpeg") ?? "" }
-        let mc = d.integer(forKey: "maxConcurrent")
-        maxConcurrent = mc == 0 ? 2 : mc
+        // 0 = 不限制（預設）
+        maxConcurrent = d.object(forKey: "maxConcurrentV2") as? Int ?? 0
         spotifyClientID = d.string(forKey: "spotifyClientID") ?? ""
         spotifyClientSecret = d.string(forKey: "spotifyClientSecret") ?? ""
+        useBrowserCookies = d.bool(forKey: "useBrowserCookies")
+        cookieBrowser = d.string(forKey: "cookieBrowser") ?? CookieBrowser.defaultBrowserID
+        cookiesFile = d.string(forKey: "cookiesFile") ?? ""
         kkboxClientID = d.string(forKey: "kkboxClientID") ?? ""
         kkboxClientSecret = d.string(forKey: "kkboxClientSecret") ?? ""
         appearance = AppearanceMode(rawValue: d.string(forKey: "appearance") ?? "") ?? .system
@@ -52,6 +68,11 @@ final class AppSettings {
         fontChoice = FontChoice(rawValue: d.string(forKey: "fontChoice") ?? "") ?? .rounded
         textSize = TextSize(rawValue: d.string(forKey: "textSize") ?? "") ?? .medium
         boldText = d.bool(forKey: "boldText")
+        // 預設的自訂色取自 App 圖示的漸層
+        customColorA = d.string(forKey: "customColorA") ?? "#F7A35C"
+        customColorB = d.string(forKey: "customColorB") ?? "#8E6BF5"
+        useGradient = d.object(forKey: "useGradient") as? Bool ?? true
+        gradientDirection = GradientDirection(rawValue: d.string(forKey: "gradientDirection") ?? "") ?? .diagonal
     }
 
     /// 取得目前語言的字串
@@ -138,6 +159,8 @@ struct DownloadOptions: Codable, Equatable {
     /// 輸出畫面比例與補邊方式
     var aspect: AspectRatio = .original
     var padStyle: PadStyle = .black
+    /// 歌詞（只用於音樂）
+    var lyrics = LyricsOptions()
 
     /// 需要下載後再用 ffmpeg 處理一次
     var needsPostProcess: Bool { effects.isActive || (kind == .video && (upscaleHeight > 0 || aspect != .original)) }
@@ -223,4 +246,74 @@ func formatDuration(_ seconds: Double) -> String {
     let s = Int(seconds.rounded())
     let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
     return h > 0 ? String(format: "%d:%02d:%02d", h, m, sec) : String(format: "%d:%02d", m, sec)
+}
+
+/// yt-dlp 支援讀取登入狀態的瀏覽器
+enum CookieBrowser {
+    /// (yt-dlp 名稱, 顯示名稱, Bundle ID)
+    static let all: [(id: String, name: String, bundle: String)] = [
+        ("chrome", "Google Chrome", "com.google.Chrome"),
+        ("safari", "Safari", "com.apple.Safari"),
+        ("firefox", "Firefox", "org.mozilla.firefox"),
+        ("edge", "Microsoft Edge", "com.microsoft.edgemac"),
+        ("brave", "Brave", "com.brave.Browser"),
+        ("vivaldi", "Vivaldi", "com.vivaldi.Vivaldi"),
+        ("opera", "Opera", "com.operasoftware.Opera"),
+        ("chromium", "Chromium", "org.chromium.Chromium"),
+    ]
+
+    /// 各瀏覽器存放登入資料的資料夾（相對於家目錄）
+    static func dataFolder(_ id: String) -> String? {
+        let base = NSHomeDirectory() + "/Library/Application Support/"
+        switch id {
+        case "chrome": return base + "Google/Chrome"
+        case "edge": return base + "Microsoft Edge"
+        case "brave": return base + "BraveSoftware/Brave-Browser"
+        case "vivaldi": return base + "Vivaldi"
+        case "opera": return base + "com.operasoftware.Opera"
+        case "chromium": return base + "Chromium"
+        case "firefox": return base + "Firefox"
+        case "safari": return NSHomeDirectory() + "/Library/Containers/com.apple.Safari/Data/Library/Cookies"
+        default: return nil
+        }
+    }
+
+    enum Access: Equatable { case ok, denied, missing }
+
+    /// TubeGrab 能不能讀到該瀏覽器的資料（macOS 隱私權保護會擋下其他 App 的資料）
+    static func access(_ id: String) -> Access {
+        if id == "file" {
+            return FileManager.default.isReadableFile(atPath: AppSettings.shared.cookiesFile) ? .ok : .missing
+        }
+        guard let path = dataFolder(id) else { return .ok }
+        do {
+            _ = try FileManager.default.contentsOfDirectory(atPath: path)
+            return .ok
+        } catch let e as NSError {
+            if e.domain == NSCocoaErrorDomain && e.code == NSFileReadNoSuchFileError { return .missing }
+            if let u = e.userInfo[NSUnderlyingErrorKey] as? NSError, u.domain == NSPOSIXErrorDomain, u.code == Int(ENOENT) { return .missing }
+            return .denied
+        }
+    }
+
+    /// 打開「系統設定 → 隱私權與安全性 → 完全取用磁碟」
+    static func openFullDiskAccessSettings() {
+        if let u = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
+            NSWorkspace.shared.open(u)
+        }
+    }
+
+    static var installed: [(id: String, name: String, bundle: String)] {
+        all.filter { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0.bundle) != nil }
+    }
+
+    /// 預設：系統預設瀏覽器（若支援），否則第一個已安裝的
+    static var defaultBrowserID: String {
+        if let app = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://www.youtube.com")!),
+           let bid = Bundle(url: app)?.bundleIdentifier,
+           let match = all.first(where: { $0.bundle == bid }) {
+            return match.id
+        }
+        return installed.first?.id ?? "safari"
+    }
 }

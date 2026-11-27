@@ -31,6 +31,15 @@ struct PreviewTrimView: View {
         VStack(alignment: .leading, spacing: 12) {
             modeBar
             playerArea
+            if options.effects.removeVocals, let db = renderer.monoLikeDB, db > 15 {
+                Label(t("fx.monoWarn"), systemImage: "exclamationmark.triangle.fill")
+                    .font(.app(.caption)).foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                    .transition(.opacity)
+            }
             renderBar
             fileInfo
 
@@ -46,6 +55,10 @@ struct PreviewTrimView: View {
         .animation(snappy, value: mode)
         .task(id: url) { await loadPreview() }
         .onChange(of: options) { _, _ in scheduleAutoRender() }
+        .onChange(of: AppRouter.shared.section) { _, sec in
+            // 離開「新增下載」頁時暫停播放（頁面內容會保留）
+            if sec != .new { player?.pause(); appliedPlayer?.pause() }
+        }
         .onDisappear {
             player?.pause(); appliedPlayer?.pause()
             if let o = timeObserver { player?.removeTimeObserver(o) }
@@ -116,8 +129,8 @@ struct PreviewTrimView: View {
                 }
                 if let appliedPlayer { PlayerView(player: appliedPlayer, transparent: options.kind == .audio) }
             }
-        case .fetching:
-            busy(t("pv.fetching"), nil)
+        case .fetching(let p):
+            busy(t("pv.fetching"), p)
         case .rendering(let p):
             busy(t("pv.rendering"), p)
         case .failed(let msg):
@@ -137,7 +150,8 @@ struct PreviewTrimView: View {
         VStack(spacing: 12) {
             ProgressView().controlSize(.large).tint(.white)
             Text(text).font(.app(.callout)).foregroundStyle(.white.opacity(0.85))
-            GradientProgressBar(value: progress, height: 6).frame(width: 220)
+            GradientProgressBar(value: progress ?? 0, height: 6, showsPercent: true).frame(width: 260)
+                .environment(\.colorScheme, .dark)
         }
     }
 

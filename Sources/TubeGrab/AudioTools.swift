@@ -32,8 +32,13 @@ struct AudioEffects: Codable, Equatable {
         var f: [String] = ["aresample=44100"]
 
         if removeVocals {
-            // 左減右 → 中央的人聲被抵消；低於 180Hz 的低音用原聲補回來
-            f.append("asplit[tg_a][tg_b];[tg_a]lowpass=f=180[tg_low];[tg_b]pan=stereo|c0=c0-c1|c1=c1-c0,highpass=f=180[tg_side];[tg_low][tg_side]amix=inputs=2:normalize=0")
+            // 左減右 → 正中央的人聲被抵消。
+            // 兩聲道輸出「同相」的結果（不是一正一反），否則喇叭會互相抵消、聽起來像沒效果。
+            // 低於 160Hz 的低音（鼓、貝斯）用原聲的中間聲道補回來，最後自動把音量拉回正常。
+            f.append("asplit[tg_a][tg_b];"
+                + "[tg_a]pan=mono|c0=0.5*c0+0.5*c1,lowpass=f=160,pan=stereo|c0=c0|c1=c0[tg_low];"
+                + "[tg_b]pan=stereo|c0=c0-c1|c1=c0-c1,highpass=f=160[tg_side];"
+                + "[tg_low][tg_side]amix=inputs=2:normalize=0")
         }
 
         switch channelMode {
@@ -49,6 +54,10 @@ struct AudioEffects: Codable, Equatable {
             let r = balance < 0 ? 1 + balance : 1
             f.append(String(format: "pan=stereo|c0=%.3f*c0|c1=%.3f*c1", l, r))
         }
+
+        // 去人聲後音量會變小，自動補回（放在「音量」之前，使用者調的音量仍然有效）
+        // loudnorm 會把取樣率升到 192kHz，要再轉回 44.1kHz
+        if normalize || removeVocals { f.append("loudnorm=I=-14:TP=-1.5:LRA=11,aresample=44100") }
 
         if pitch != 0 {
             // 改變取樣率來升降調，再用 atempo 把長度拉回原本
@@ -67,7 +76,6 @@ struct AudioEffects: Codable, Equatable {
         if fadeOut > 0, outDuration > fadeOut {
             f.append(String(format: "afade=t=out:st=%.2f:d=%.1f", outDuration - fadeOut, fadeOut))
         }
-        if normalize { f.append("loudnorm=I=-14:TP=-1.5:LRA=11") }
         return f.joined(separator: ",")
     }
 }
@@ -228,5 +236,23 @@ enum MediaPostProcessor {
             throw ToolError(message: "ffmpeg: " + YTDLP.lastErrorLine(r.stderr))
         }
         _ = try FileManager.default.replaceItemAt(file, withItemAt: tmp)
+    }
+}
+
+enum AudioAnalysis {
+    /// 立體聲寬度：左右差異（L−R）比整體小幾 dB。
+    /// 數字越大代表越接近單聲道；超過約 15 dB 時，去人聲幾乎做不出效果。
+    static func sideToMidDB(_ file: URL) async -> Double? {
+        func rms(_ pan: String) async -> Double? {
+            let args = ["-hide_banner", "-nostats", "-i", file.path, "-map", "0:a:0",
+                        "-af", "\(pan),astats=metadata=0:measure_overall=RMS_level:measure_perchannel=0",
+                        "-f", "null", "-"]
+            guard let r = try? await ProcessRunner.run(AppSettings.shared.ffmpegPath, args) else { return nil }
+            let line = r.stderr.split(separator: "\n").last { $0.contains("RMS level dB") }
+            return line.flatMap { Double($0.split(separator: ":").last?.trimmingCharacters(in: .whitespaces) ?? "") }
+        }
+        guard let mid = await rms("pan=mono|c0=0.5*c0+0.5*c1"),
+              let side = await rms("pan=mono|c0=0.5*c0-0.5*c1") else { return nil }
+        return mid - side
     }
 }

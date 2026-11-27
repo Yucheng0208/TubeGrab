@@ -2,12 +2,35 @@ import SwiftUI
 import AppKit
 
 /// 漸層進度條；value == nil 時顯示來回移動的「處理中」動畫
+/// showsPercent = true 時在右邊顯示百分比
 struct GradientProgressBar: View {
     var value: Double?
     var height: CGFloat = 10
+    var showsPercent = false
     @State private var phase: CGFloat = -0.4
 
     var body: some View {
+        if showsPercent {
+            HStack(spacing: 10) {
+                bar
+                Text(percentText)
+                    .font(.app(.callout).weight(.bold).monospacedDigit())
+                    .foregroundStyle(AppSettings.shared.theme.color)
+                    .frame(minWidth: 46, alignment: .trailing)
+                    .contentTransition(.numericText())
+                    .animation(.easeOut(duration: 0.3), value: percentText)
+            }
+        } else {
+            bar
+        }
+    }
+
+    private var percentText: String {
+        let v = min(max(value ?? 0, 0), 1)
+        return "\(Int((v * 100).rounded(.down)))%"
+    }
+
+    private var bar: some View {
         GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.08))
@@ -39,15 +62,7 @@ struct QueueView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
                 if manager.tasks.isEmpty {
-                    VStack(spacing: 14) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 44, weight: .light))
-                            .foregroundStyle(AppSettings.shared.theme.gradient)
-                            .frame(width: 100, height: 100)
-                            .background(AppSettings.shared.theme.color.opacity(0.1), in: Circle())
-                        Text(t("q.empty")).font(.app(.title3)).foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity).padding(.top, 120)
+                    emptyState
                 } else {
                     summary
                     ForEach(manager.tasks) { task in
@@ -55,22 +70,27 @@ struct QueueView: View {
                             .contextMenu {
                                 if task.outputFile != nil {
                                     Button(t("q.reveal")) {
-                                        if let f = task.outputFile { NSWorkspace.shared.activateFileViewerSelecting([f]) }
+                                        FileOpener.reveal(task.outputFile)
                                     }
                                 }
+                                Menu(t("score.find")) {
+                                    ForEach(ScoreFinder.sites) { site in
+                                        Button(t(site.titleKey)) { ScoreFinder.open(site, title: task.metadata.title, artist: task.metadata.artist) }
+                                    }
+                                }
+                                Divider()
                                 Button(t("q.remove"), role: .destructive) { manager.remove(task) }
                             }
                             .transition(.asymmetric(insertion: .move(edge: .top).combined(with: .opacity), removal: .opacity))
                     }
                 }
             }
-            .padding(28)
-            .frame(maxWidth: 940)
+            .padding(36)
+            .frame(maxWidth: 1160)
             .frame(maxWidth: .infinity)
             .animation(.spring(duration: 0.35), value: manager.tasks.map(\.id))
         }
         .background(Color(nsColor: .windowBackgroundColor))
-        .navigationTitle(t("nav.queue"))
         .toolbar {
             ToolbarItem {
                 Button { NSWorkspace.shared.open(AppSettings.shared.outputFolder) } label: {
@@ -82,6 +102,34 @@ struct QueueView: View {
                     .disabled(!manager.tasks.contains { $0.status == .done || $0.status == .cancelled })
             }
         }
+    }
+
+    /// 沒有任何下載時
+    private var emptyState: some View {
+        let theme = AppSettings.shared.theme
+        return VStack(spacing: 18) {
+            Image(systemName: "tray")
+                .font(.system(size: 46, weight: .light))
+                .foregroundStyle(theme.gradient)
+                .frame(width: 110, height: 110)
+                .background(theme.color.opacity(0.1), in: Circle())
+            VStack(spacing: 6) {
+                Text(t("q.emptyTitle")).font(.app(.title2))
+                Text(t("q.emptyBody")).font(.app(.body)).foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            HStack(spacing: 12) {
+                Button { AppRouter.shared.go(.new) } label: { Label(t("nav.new"), systemImage: "plus.circle.fill") }
+                    .buttonStyle(GradientButtonStyle())
+                Button { AppRouter.shared.go(.search) } label: { Label(t("nav.search"), systemImage: "magnifyingglass") }
+                Button { AppRouter.shared.go(.batch) } label: { Label(t("nav.batch"), systemImage: "music.note.list") }
+            }
+            Button { NSWorkspace.shared.open(AppSettings.shared.outputFolder) } label: {
+                Label(t("q.openFolder"), systemImage: "folder")
+            }
+            .buttonStyle(.link)
+        }
+        .frame(maxWidth: .infinity).padding(.top, 90)
     }
 
     /// 上方的整體進度卡片
@@ -117,6 +165,8 @@ struct QueueView: View {
 struct TaskRow: View {
     var task: DownloadTask
     private var manager: DownloadManager { DownloadManager.shared }
+    @State private var hovering = false
+    @State private var cursorPushed = false
 
     var body: some View {
         Card {
@@ -130,16 +180,30 @@ struct TaskRow: View {
                 }
                 .frame(width: 112, height: 63)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay {
+                    if task.status == .done {
+                        Image(systemName: "play.circle.fill")
+                            .font(.system(size: 26)).foregroundStyle(.white)
+                            .shadow(radius: 4)
+                            .opacity(hovering ? 1 : 0.75)
+                    }
+                }
+                .onTapGesture { if task.status == .done { FileOpener.open(task.outputFile) } }
 
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline) {
                         Text(task.displayTitle).font(.app(.headline)).lineLimit(1)
+                            .foregroundStyle(task.status == .done && hovering ? AppSettings.shared.theme.color : .primary)
+                            .onTapGesture { if task.status == .done { FileOpener.open(task.outputFile) } }
                         Spacer()
                         buttons
                     }
                     HStack(spacing: 6) {
                         Pill(text: formatLabel, icon: task.options.kind == .audio ? "music.note" : "film")
                         if !task.metadata.artist.isEmpty { Pill(text: task.metadata.artist, icon: "music.mic") }
+                        if let found = task.lyricsFound {
+                            Pill(text: found ? t("ly.pillFound") : t("ly.pillNone"), icon: found ? "quote.bubble.fill" : "quote.bubble")
+                        }
                         if task.options.trimEnabled {
                             Pill(text: "\(formatDuration(task.options.trimStart))–\(formatDuration(task.options.trimEnd))", icon: "scissors")
                         }
@@ -152,6 +216,27 @@ struct TaskRow: View {
                 }
             }
         }
+        .contentShape(Rectangle())
+        // 完成的項目：點兩下整列也能打開
+        .onTapGesture(count: 2) { if task.status == .done { FileOpener.open(task.outputFile) } }
+        .onHover { h in
+            withAnimation(.easeOut(duration: 0.15)) { hovering = h }
+            // 只在完成的項目上顯示手指游標，離開時一定還原
+            if h && task.status == .done && !cursorPushed { NSCursor.pointingHand.push(); cursorPushed = true }
+            if !h && cursorPushed { NSCursor.pop(); cursorPushed = false }
+        }
+        .help(task.status == .done ? t("q.openHint") : "")
+    }
+
+    /// 回報問題時附上的下載設定（不含檔名與網址以外的個人資訊）
+    private var reportContext: String {
+        var lines = ["- \(t("opt.kind")): \(formatLabel)"]
+        if let u = task.url { lines.append("- URL: \(u)") }
+        if task.options.trimEnabled { lines.append("- Trim: \(formatDuration(task.options.trimStart))–\(formatDuration(task.options.trimEnd))") }
+        if task.options.effects.isActive { lines.append("- Audio tools: on") }
+        if task.options.kind == .video && task.options.upscaleHeight > 0 { lines.append("- Upscale: \(task.options.upscaleHeight)p") }
+        if task.options.kind == .video && task.options.aspect != .original { lines.append("- Aspect: \(task.options.aspect.rawValue) / \(task.options.padStyle.rawValue)") }
+        return lines.joined(separator: "\n")
     }
 
     private var formatLabel: String {
@@ -164,14 +249,12 @@ struct TaskRow: View {
         switch task.status {
         case .downloading, .processing, .searching:
             VStack(alignment: .leading, spacing: 5) {
-                GradientProgressBar(value: task.status == .searching ? nil : task.progress, height: 10)
+                GradientProgressBar(value: task.status == .searching ? nil : task.progress, height: 10, showsPercent: true)
                 HStack(spacing: 10) {
                     if task.status == .searching {
                         Text(t("status.searching")).font(.app(.caption))
                     } else {
-                        Text("\(Int(task.progress * 100))%").font(.app(.callout).weight(.bold).monospacedDigit())
-                            .foregroundStyle(AppSettings.shared.theme.color)
-                        Text(t(task.stageKey)).font(.app(.caption))
+                        Text(t(task.stageKey)).font(.app(.caption).weight(.medium))
                     }
                     Spacer()
                     if !task.sizeText.isEmpty && task.status == .downloading {
@@ -187,21 +270,28 @@ struct TaskRow: View {
                 .foregroundStyle(.secondary)
             }
         case .failed(let msg):
-            Label("\(task.status.label): \(msg)", systemImage: "xmark.octagon.fill")
-                .font(.app(.caption)).foregroundStyle(.red).lineLimit(2).textSelection(.enabled)
+            VStack(alignment: .leading, spacing: 5) {
+                if task.progress > 0 { GradientProgressBar(value: task.progress, height: 10, showsPercent: true).opacity(0.5) }
+                Label("\(task.status.label): \(msg)", systemImage: "xmark.octagon.fill")
+                    .font(.app(.caption)).foregroundStyle(.red).lineLimit(2).textSelection(.enabled)
+            }
         case .done:
             VStack(alignment: .leading, spacing: 5) {
-                GradientProgressBar(value: 1, height: 10)
+                GradientProgressBar(value: 1, height: 10, showsPercent: true)
                 Label(task.status.label, systemImage: "checkmark.circle.fill")
                     .font(.app(.caption).weight(.semibold)).foregroundStyle(.green)
             }
         case .waiting:
             VStack(alignment: .leading, spacing: 5) {
-                GradientProgressBar(value: 0, height: 10)
+                GradientProgressBar(value: 0, height: 10, showsPercent: true)
                 Label(task.status.label, systemImage: "hourglass").font(.app(.caption)).foregroundStyle(.secondary)
             }
         case .cancelled:
-            Label(task.status.label, systemImage: "stop.circle").font(.app(.caption)).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                Label(task.status.label, systemImage: "stop.circle")
+                if task.progress > 0 { Text("(\(Int(task.progress * 100))%)").monospacedDigit() }
+            }
+            .font(.app(.caption)).foregroundStyle(.secondary)
         }
     }
 
@@ -209,11 +299,18 @@ struct TaskRow: View {
         HStack(spacing: 6) {
             switch task.status {
             case .done:
-                Button(t("q.open")) { if let f = task.outputFile { NSWorkspace.shared.open(f) } }
-                Button { if let f = task.outputFile { NSWorkspace.shared.activateFileViewerSelecting([f]) } } label: {
+                Button { FileOpener.open(task.outputFile) } label: { Label(t("q.open"), systemImage: "play.fill") }
+                    .buttonStyle(GradientButtonStyle())
+                Button { FileOpener.reveal(task.outputFile) } label: {
                     Image(systemName: "folder")
                 }.help(t("q.reveal"))
-            case .failed, .cancelled:
+            case .failed(let msg):
+                Button(t("q.retry")) { manager.retry(task) }
+                Button { Feedback.open(.bug, error: msg, context: reportContext) } label: {
+                    Label(t("fb.report"), systemImage: "ladybug")
+                }
+                .help(t("fb.reportHint"))
+            case .cancelled:
                 Button(t("q.retry")) { manager.retry(task) }
             case .waiting, .searching, .downloading, .processing:
                 Button(t("q.cancel")) { manager.cancel(task) }
@@ -221,6 +318,6 @@ struct TaskRow: View {
             Button(role: .destructive) { manager.remove(task) } label: { Image(systemName: "trash") }
                 .help(t("q.remove"))
         }
-        .controlSize(.small)
+        .controlSize(.regular)
     }
 }

@@ -47,6 +47,8 @@ final class DownloadTask: Identifiable {
     @ObservationIgnored var lastRaw: Double = 0
     var outputFile: URL?
     var sourceNote = ""
+    /// 歌詞結果：nil = 沒有要歌詞；true = 找到；false = 找不到
+    var lyricsFound: Bool?
     var useYouTubeMetadata = false
 
     @ObservationIgnored var handle: RunningProcess?
@@ -104,7 +106,8 @@ final class DownloadManager {
 
     /// 依「同時下載數量」啟動等待中的項目
     private func pump() {
-        let limit = max(1, AppSettings.shared.maxConcurrent)
+        // 0 = 不限制：全部同時開始
+        let limit = AppSettings.shared.maxConcurrent <= 0 ? Int.max : AppSettings.shared.maxConcurrent
         let running = tasks.filter { $0.status.isActive }.count
         guard running < limit else { return }
         for task in tasks.filter({ $0.status == .waiting }).prefix(limit - running) {
@@ -199,6 +202,16 @@ final class DownloadManager {
                 if fxHandle.isCancelled { task.status = .cancelled; pump(); return }
             }
 
+            // 6. 歌詞（音樂）
+            if task.options.kind == .audio, task.options.lyrics.enabled, let file = task.outputFile {
+                task.status = .processing
+                task.stageKey = "stage.lyrics"
+                task.progress = max(task.progress, 0.97)
+                task.lyricsFound = await LyricsService.apply(task.options.lyrics, to: file, metadata: task.metadata,
+                                                             download: task.options,
+                                                             duration: (raw["duration"] as? Double) ?? 0)
+            }
+
             task.progress = 1
             task.stageKey = "status.done"
             task.status = .done
@@ -284,7 +297,23 @@ final class DownloadManager {
         return active.map(\.progress).reduce(0, +) / Double(active.count)
     }
 
-        // MARK: 播放清單 → 自動加入下載
+        // MARK: 搜尋結果 → 直接下載成音樂
+
+    func quickAudio(_ r: YTDLP.SearchResult, base: DownloadOptions = DownloadOptions()) {
+        var o = base
+        o.kind = .audio
+        o.trimEnabled = false
+        var m = TrackMetadata()
+        m.title = r.title
+        m.artist = r.channel.replacingOccurrences(of: " - Topic", with: "")
+        m.fileName = sanitizeFileName(r.title)
+        let task = DownloadTask(url: r.url, options: o, metadata: m)
+        task.thumbnail = r.thumbnail
+        task.useYouTubeMetadata = true
+        add(task)
+    }
+
+    // MARK: 播放清單 → 自動加入下載
 
     func enqueuePlaylist(_ tracks: [PlaylistTrack], options: DownloadOptions) {
         for tr in tracks {

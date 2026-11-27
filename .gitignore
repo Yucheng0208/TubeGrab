@@ -60,3 +60,8 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# TubeGrab build output (./scripts/build-app.sh)
+build/
+.DS_Store
+dist/

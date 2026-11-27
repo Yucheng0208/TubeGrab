@@ -15,7 +15,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 }
 
 enum AccentTheme: String, CaseIterable, Identifiable {
-    case ruby, ocean, violet, forest, sunset, sakura, graphite
+    case ruby, ocean, violet, forest, sunset, sakura, graphite, custom
     var id: String { rawValue }
     var labelKey: String { "look.theme.\(rawValue)" }
 
@@ -28,10 +28,20 @@ enum AccentTheme: String, CaseIterable, Identifiable {
         case .sunset: return [Color(red: 0.98, green: 0.55, blue: 0.10), Color(red: 0.95, green: 0.30, blue: 0.45)]
         case .sakura: return [Color(red: 0.93, green: 0.42, blue: 0.62), Color(red: 0.98, green: 0.70, blue: 0.75)]
         case .graphite: return [Color(red: 0.32, green: 0.35, blue: 0.40), Color(red: 0.55, green: 0.58, blue: 0.64)]
+        case .custom:
+            let s = AppSettings.shared
+            return [Color(hex: s.customColorA) ?? .purple, Color(hex: s.customColorB) ?? .pink]
         }
     }
     var color: Color { colors[0] }
-    var gradient: LinearGradient { LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing) }
+
+    /// 漸層：方向與「使用漸層」開關都在「外觀」設定；關掉漸層時用單一顏色
+    var gradient: LinearGradient {
+        let s = AppSettings.shared
+        let c = s.useGradient ? colors : [colors[0], colors[0]]
+        let (a, b) = s.gradientDirection.points
+        return LinearGradient(colors: c, startPoint: a, endPoint: b)
+    }
 }
 
 enum FontChoice: String, CaseIterable, Identifiable {
@@ -117,7 +127,7 @@ struct Card<Content: View>: View {
             }
             content
         }
-        .padding(18)
+        .padding(22)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -134,16 +144,21 @@ struct Card<Content: View>: View {
 /// 漸層主要按鈕
 struct GradientButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var enabled
+    @State private var hovering = false
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.app(.headline))
             .foregroundStyle(.white)
-            .padding(.horizontal, 18).padding(.vertical, 10)
+            .padding(.horizontal, 24).padding(.vertical, 13)
+            .frame(minHeight: 44)
             .background(AppSettings.shared.theme.gradient, in: Capsule())
             .shadow(color: AppSettings.shared.theme.color.opacity(enabled ? 0.35 : 0), radius: 8, y: 3)
+            .brightness(hovering ? 0.06 : 0)
             .opacity(enabled ? (configuration.isPressed ? 0.8 : 1) : 0.45)
             .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .onHover { hovering = $0 && enabled }
             .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+            .animation(.easeOut(duration: 0.12), value: hovering)
     }
 }
 
@@ -157,11 +172,11 @@ struct ChoiceTile: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 10) {
-                Image(systemName: icon).font(.system(size: 20 * AppSettings.shared.textSize.scale, weight: .semibold))
+                Image(systemName: icon).font(.system(size: 24 * AppSettings.shared.textSize.scale, weight: .semibold))
                 Text(title).font(.app(.headline))
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
+            .padding(.vertical, 20)
             .foregroundStyle(selected ? .white : .primary)
             .background {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
@@ -186,7 +201,79 @@ struct Pill: View {
             Text(text)
         }
         .font(.app(.caption))
-        .padding(.horizontal, 8).padding(.vertical, 4)
+        .padding(.horizontal, 10).padding(.vertical, 5)
         .background(Color.primary.opacity(0.07), in: Capsule())
+    }
+}
+
+// MARK: - App 圖示
+
+enum AppIcon {
+    /// App 圖示（.app 內的 Resources/AppIcon.png；用 swift run 時讀 assets/AppIcon.png）
+    static let image: NSImage? = {
+        if let u = Bundle.main.url(forResource: "AppIcon", withExtension: "png"), let i = NSImage(contentsOf: u) { return i }
+        let dev = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("assets/AppIcon.png")
+        return NSImage(contentsOf: dev)
+    }()
+}
+
+/// 介面上顯示的 App Logo；找不到圖檔時用原本的漸層方塊
+struct AppLogo: View {
+    var size: CGFloat
+    var body: some View {
+        if let img = AppIcon.image {
+            Image(nsImage: img)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                // 圖檔四周留有 macOS 標準邊距，放大一點讓視覺大小一致
+                .scaleEffect(1.22)
+                .frame(width: size, height: size)
+        } else {
+            Image(systemName: "arrow.down.to.line.compact")
+                .font(.system(size: size * 0.45, weight: .bold)).foregroundStyle(.white)
+                .frame(width: size, height: size)
+                .background(AppSettings.shared.theme.gradient, in: RoundedRectangle(cornerRadius: size * 0.28, style: .continuous))
+        }
+    }
+}
+
+/// 漸層方向
+enum GradientDirection: String, CaseIterable, Identifiable {
+    case diagonal, diagonalUp, horizontal, vertical
+    var id: String { rawValue }
+    var labelKey: String { "look.dir.\(rawValue)" }
+    var icon: String {
+        switch self {
+        case .diagonal: return "arrow.down.right"
+        case .diagonalUp: return "arrow.up.right"
+        case .horizontal: return "arrow.right"
+        case .vertical: return "arrow.down"
+        }
+    }
+    var points: (UnitPoint, UnitPoint) {
+        switch self {
+        case .diagonal: return (.topLeading, .bottomTrailing)
+        case .diagonalUp: return (.bottomLeading, .topTrailing)
+        case .horizontal: return (.leading, .trailing)
+        case .vertical: return (.top, .bottom)
+        }
+    }
+}
+
+extension Color {
+    /// "#RRGGBB" → Color
+    init?(hex: String) {
+        var h = hex.trimmingCharacters(in: .whitespaces)
+        if h.hasPrefix("#") { h.removeFirst() }
+        guard h.count == 6, let v = UInt32(h, radix: 16) else { return nil }
+        self.init(red: Double(v >> 16 & 0xFF) / 255, green: Double(v >> 8 & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
+    }
+
+    /// Color → "#RRGGBB"
+    var hexString: String {
+        let c = NSColor(self).usingColorSpace(.sRGB) ?? .black
+        return String(format: "#%02X%02X%02X", Int((c.redComponent * 255).rounded()),
+                      Int((c.greenComponent * 255).rounded()), Int((c.blueComponent * 255).rounded()))
     }
 }

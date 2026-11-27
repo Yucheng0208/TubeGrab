@@ -2,22 +2,19 @@ import SwiftUI
 import AppKit
 
 struct NewDownloadView: View {
+
+    @Bindable private var store = PageStores.newDownload
+    private var urlText: String { get { store.urlText } nonmutating set { store.urlText = newValue } }
+    private var loading: Bool { get { store.loading } nonmutating set { store.loading = newValue } }
+    private var errorText: String? { get { store.errorText } nonmutating set { store.errorText = newValue } }
+    private var info: MediaInfo? { get { store.info } nonmutating set { store.info = newValue } }
+    private var options: DownloadOptions { get { store.options } nonmutating set { store.options = newValue } }
+    private var metadata: TrackMetadata { get { store.metadata } nonmutating set { store.metadata = newValue } }
     var onAdded: () -> Void
 
-    @State private var urlText = ""
-    @State private var loading = false
-    @State private var errorText: String?
-    @State private var info: MediaInfo?
-    @State private var playlistName = ""
-    @State private var playlistTracks: [PlaylistTrack] = []
-    @State private var options = DownloadOptions()
-    @State private var metadata = TrackMetadata()
     @State private var toast: String?
-    @State private var searchResults: [YTDLP.SearchResult] = []
-    @State private var searchQuery = ""
-    @State private var showListSheet = false
-    @State private var listText = ""
     private var installer = ToolInstaller.shared
+    private var router = AppRouter.shared
 
     private var theme: AccentTheme { AppSettings.shared.theme }
 
@@ -41,21 +38,12 @@ struct NewDownloadView: View {
                     .frame(maxWidth: .infinity).padding(.vertical, 30)
                 } else if let info, !info.isPlaylist {
                     singleVideo(info)
-                } else if !searchResults.isEmpty {
-                    SearchResultsSection(query: searchQuery, results: searchResults,
-                                         onPick: { r in urlText = r.url; Task { await load() } },
-                                         onQuickAudio: { r in quickAudio(r) })
-                } else if !playlistTracks.isEmpty {
-                    PlaylistSection(name: playlistName, tracks: $playlistTracks, options: $options) { chosen in
-                        DownloadManager.shared.enqueuePlaylist(chosen, options: options)
-                        onAdded()
-                    }
                 } else {
                     steps
                 }
             }
-            .padding(28)
-            .frame(maxWidth: 940, alignment: .leading)
+            .padding(36)
+            .frame(maxWidth: 1160, alignment: .leading)
             .frame(maxWidth: .infinity)
         }
         .background(backgroundWash)
@@ -70,8 +58,14 @@ struct NewDownloadView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .navigationTitle(t("nav.new"))
-        .sheet(isPresented: $showListSheet) { listSheet }
+        .task(id: router.pendingDownloadURL) {
+            // 從「搜尋歌曲」等頁面轉過來的網址
+            if let u = router.pendingDownloadURL {
+                router.pendingDownloadURL = nil
+                urlText = u
+                await load()
+            }
+        }
     }
 
     // MARK: 第一次使用：安裝工具
@@ -85,7 +79,7 @@ struct NewDownloadView: View {
                     Text(t("tools.missingTitle")).font(.app(.headline))
                     Text(t("tools.missingBody")).font(.app(.caption)).foregroundStyle(.secondary)
                     if installer.isInstalling {
-                        GradientProgressBar(value: installer.progress, height: 8).padding(.top, 4)
+                        GradientProgressBar(value: installer.progress, height: 8, showsPercent: true).padding(.top, 4)
                         Text(installer.log.split(separator: "\n").last.map(String.init) ?? "")
                             .font(.app(.caption2).monospaced()).foregroundStyle(.secondary).lineLimit(1)
                     } else if let err = installer.lastError {
@@ -104,61 +98,6 @@ struct NewDownloadView: View {
         }
     }
 
-    // MARK: 貼上歌單文字
-
-    private var listSheet: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Label(t("list.title"), systemImage: "text.badge.plus").font(.app(.title2))
-            Text(t("list.hint")).font(.app(.callout)).foregroundStyle(.secondary)
-            TextEditor(text: $listText)
-                .font(.app(.body))
-                .scrollContentBackground(.hidden)
-                .padding(10)
-                .background(Color.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
-                .frame(minHeight: 260)
-            HStack {
-                Text("\(PlaylistImporter.parseTextList(listText).count) \(t("pl.tracks"))")
-                    .font(.app(.callout)).foregroundStyle(.secondary)
-                Spacer()
-                Button(t("list.cancel")) { showListSheet = false }
-                Button {
-                    loadTextList(listText)
-                    showListSheet = false
-                } label: { Label(t("list.parse"), systemImage: "checkmark") }
-                .buttonStyle(GradientButtonStyle())
-                .disabled(PlaylistImporter.parseTextList(listText).isEmpty)
-            }
-        }
-        .padding(24)
-        .frame(width: 560)
-        .tint(theme.color)
-    }
-
-    private func loadTextList(_ text: String) {
-        let tracks = PlaylistImporter.parseTextList(text)
-        guard !tracks.isEmpty else { return }
-        info = nil; searchResults = []; errorText = nil
-        playlistName = t("list.name")
-        playlistTracks = tracks
-        options.kind = .audio
-    }
-
-    private func quickAudio(_ r: YTDLP.SearchResult) {
-        var o = options
-        o.kind = .audio
-        o.trimEnabled = false
-        var m = TrackMetadata()
-        m.title = r.title
-        m.artist = r.channel.replacingOccurrences(of: " - Topic", with: "")
-        m.fileName = sanitizeFileName(r.title)
-        let task = DownloadTask(url: r.url, options: o, metadata: m)
-        task.thumbnail = r.thumbnail
-        task.useYouTubeMetadata = true
-        DownloadManager.shared.add(task)
-        withAnimation(.spring) { toast = t("new.added") }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { withAnimation { toast = nil } }
-    }
-
     private var backgroundWash: some View {
         ZStack(alignment: .top) {
             Color(nsColor: .windowBackgroundColor)
@@ -173,11 +112,8 @@ struct NewDownloadView: View {
     private var hero: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 14) {
-                Image(systemName: "arrow.down.to.line.compact")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(.white)
-                    .frame(width: 54, height: 54)
-                    .background(.white.opacity(0.2), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                AppLogo(size: 58)
+                    .shadow(color: .black.opacity(0.15), radius: 6, y: 3)
                 VStack(alignment: .leading, spacing: 2) {
                     Text("TubeGrab").font(.app(.largeTitle)).foregroundStyle(.white)
                     Text(t("app.tagline")).font(.app(.callout)).foregroundStyle(.white.opacity(0.85))
@@ -185,36 +121,32 @@ struct NewDownloadView: View {
                 }
                 .layoutPriority(1)
                 Spacer(minLength: 8)
-                // 視窗太窄時自動隱藏來源標籤，避免標題被擠到換行
-                ViewThatFits(in: .horizontal) {
-                    badges
-                    Color.clear.frame(width: 0, height: 0)
-                }
+                // 固定顯示（不用 ViewThatFits：側欄滑動時寬度一直變，標籤會一直閃）
+                badges
             }
 
             HStack(spacing: 10) {
                 HStack(spacing: 8) {
                     Image(systemName: "link").foregroundStyle(.secondary)
-                    TextField(t("new.placeholder"), text: $urlText)
+                    TextField(t("new.placeholder"), text: $store.urlText)
                         .textFieldStyle(.plain)
                         .font(.app(.title3))
                         .onSubmit { Task { await load() } }
                     if !urlText.isEmpty {
-                        Button { urlText = ""; info = nil; playlistTracks = []; searchResults = []; errorText = nil } label: {
+                        Button { urlText = ""; info = nil; errorText = nil } label: {
                             Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                         }.buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 14).padding(.vertical, 12)
-                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .padding(.horizontal, 16).padding(.vertical, 15)
+                .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
 
                 Button {
                     if let s = NSPasteboard.general.string(forType: .string) {
                         let text = s.trimmingCharacters(in: .whitespacesAndNewlines)
                         // 複製了多行歌單 → 直接當清單
                         if text.contains("\n"), PlaylistImporter.parseTextList(text).count > 1 {
-                            listText = text
-                            showListSheet = true
+                            router.openBatch(text: text)
                         } else {
                             urlText = text
                             Task { await load() }
@@ -223,16 +155,16 @@ struct NewDownloadView: View {
                 } label: {
                     Label(t("new.paste"), systemImage: "doc.on.clipboard.fill")
                         .font(.app(.headline))
-                        .padding(.horizontal, 14).padding(.vertical, 11)
+                        .padding(.horizontal, 20).padding(.vertical, 15)
                         .foregroundStyle(.white)
                         .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
                 .buttonStyle(.plain)
 
-                Button { showListSheet = true } label: {
+                Button { router.openBatch(showListSheet: true) } label: {
                     Image(systemName: "text.badge.plus")
                         .font(.app(.headline))
-                        .padding(.horizontal, 12).padding(.vertical, 11)
+                        .padding(.horizontal, 16).padding(.vertical, 15)
                         .foregroundStyle(.white)
                         .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
@@ -244,7 +176,7 @@ struct NewDownloadView: View {
                 } label: {
                     Text(normalizeURL(urlText) == nil && !urlText.isEmpty ? t("search.button") : t("new.analyze"))
                         .font(.app(.headline))
-                        .padding(.horizontal, 18).padding(.vertical, 11)
+                        .padding(.horizontal, 26).padding(.vertical, 15)
                         .foregroundStyle(theme.color)
                         .background(.white, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
@@ -313,33 +245,24 @@ struct NewDownloadView: View {
         let typed = urlText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !typed.isEmpty else { return }
         guard let url = normalizeURL(typed) else {
-            // 不是網址 → 當成歌名 / 歌手，到 YouTube 搜尋
-            loading = true; errorText = nil; info = nil; playlistTracks = []; searchResults = []
-            defer { loading = false }
-            do {
-                let r = try await YTDLP.search(typed, count: 15)
-                if r.isEmpty { errorText = t("search.none") }
-                searchQuery = typed
-                searchResults = r
-            } catch { errorText = error.localizedDescription }
+            // 不是網址 → 當成歌名 / 歌手，交給「搜尋歌曲」
+            router.openSearch(typed)
             return
         }
         urlText = url
-        loading = true; errorText = nil; info = nil; playlistTracks = []; searchResults = []
+        // Spotify / Apple Music / KKBOX 歌單 → 交給「歌單批次下載」
+        if PlaylistImporter.source(of: url) != nil {
+            router.openBatch(url: url)
+            return
+        }
+        loading = true; errorText = nil; info = nil
         defer { loading = false }
         do {
-            if PlaylistImporter.source(of: url) != nil {
-                // Spotify / Apple Music → 預設下載音樂
-                let r = try await PlaylistImporter.importTracks(url)
-                guard !r.tracks.isEmpty else { throw ToolError(message: t("err.noTracks")) }
-                playlistName = r.name
-                playlistTracks = r.tracks
-                options.kind = .audio
-            } else {
+            do {
                 let i = try await YTDLP.fetchInfo(url)
                 if i.isPlaylist {
-                    playlistName = i.title
-                    playlistTracks = i.entries
+                    // YouTube 播放清單 → 已經讀好的清單直接交給「歌單批次下載」
+                    router.openBatch(url: url, list: (i.title, i.entries))
                 } else {
                     info = i
                     metadata = i.defaultMetadata
@@ -376,16 +299,17 @@ struct NewDownloadView: View {
             }
         }
 
-        OptionsSection(options: $options)
+        OptionsSection(options: $store.options)
 
-        AudioToolsSection(options: $options)
+        AudioToolsSection(options: $store.options)
 
         Card(title: t("trim.title"), icon: "scissors") {
-            PreviewTrimView(url: info.webpageURL, info: info.raw, duration: info.duration, options: $options, metadata: metadata)
+            PreviewTrimView(url: info.webpageURL, info: info.raw, duration: info.duration, options: $store.options, metadata: metadata)
         }
 
-        MetadataEditor(metadata: $metadata, original: info.defaultMetadata,
-                       lookupQuery: MetadataLookup.cleanQuery(title: info.title, artist: info.channel))
+        MetadataEditor(metadata: $store.metadata, original: info.defaultMetadata,
+                       lookupQuery: MetadataLookup.cleanQuery(title: info.title, artist: info.channel),
+                       duration: info.duration)
 
         HStack {
             Spacer()
@@ -510,6 +434,33 @@ struct OptionsSection: View {
                             .toggleStyle(.switch).font(.app(.body))
                             .disabled(!options.audioFormat.supportsCover)
                     }
+                    GridRow {
+                        label(t("ly.title"))
+                        VStack(alignment: .leading, spacing: 8) {
+                            Toggle(t("ly.enable"), isOn: $options.lyrics.enabled.animation(.snappy(duration: 0.28)))
+                                .toggleStyle(.switch).font(.app(.body))
+                            if options.lyrics.enabled {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(spacing: 18) {
+                                        Toggle(t("ly.saveLRC"), isOn: $options.lyrics.saveLRC)
+                                        Toggle(t("ly.embed"), isOn: $options.lyrics.embed)
+                                            .disabled(options.audioFormat == .wav || options.audioFormat == .aac)
+                                    }
+                                    .toggleStyle(.checkbox).font(.app(.body))
+                                    HStack(spacing: 10) {
+                                        Text(t("ly.script")).font(.app(.callout)).foregroundStyle(.secondary)
+                                        Picker("", selection: $options.lyrics.script) {
+                                            ForEach(LyricsScript.allCases) { Text(t($0.labelKey)).tag($0) }
+                                        }.labelsHidden().frame(maxWidth: 220)
+                                    }
+                                    Label(t("ly.hint"), systemImage: "info.circle")
+                                        .font(.app(.caption)).foregroundStyle(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                    }
                 }
             }
             .padding(.top, 4)
@@ -531,6 +482,12 @@ struct MetadataEditor: View {
     var original: TrackMetadata
     /// 有提供就自動到網路查詢歌曲資訊
     var lookupQuery: String? = nil
+    var duration: Double = 0
+
+    @State private var lyrics: Lyrics?
+    @State private var lyricsState = 0   // 0 尚未查詢、1 查詢中、2 完成
+    @State private var showSynced = true
+    @State private var copied = false
 
     @State private var query = ""
     @State private var suggestions: [SongInfo] = []
@@ -561,7 +518,7 @@ struct MetadataEditor: View {
                 }
                 .disabled(metadata == original)
             }
-            if lookupQuery != nil { lookupSection }
+            if lookupQuery != nil { lookupSection; lyricsSection }
         }
         .task(id: lookupQuery) {
             guard let q = lookupQuery, !searched else { return }
@@ -593,6 +550,73 @@ struct MetadataEditor: View {
             ForEach(suggestions) { s in suggestionRow(s) }
         }
         .animation(.snappy(duration: 0.28), value: suggestions)
+    }
+
+    // MARK: 歌詞預覽
+
+    private var lyricsSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            HStack(spacing: 8) {
+                Label(t("ly.preview"), systemImage: "quote.bubble").font(.app(.headline))
+                if let l = lyrics, !(l.synced ?? "").isEmpty {
+                    Picker("", selection: $showSynced) {
+                        Text(t("ly.synced")).tag(true)
+                        Text(t("ly.plain")).tag(false)
+                    }.pickerStyle(.segmented).labelsHidden().frame(width: 200)
+                }
+                Spacer()
+                ScoreMenu(title: metadata.title, artist: metadata.artist)
+                Button {
+                    Task { await loadLyrics() }
+                } label: {
+                    if lyricsState == 1 { ProgressView().controlSize(.small) }
+                    else { Label(lyricsState == 0 ? t("ly.find") : t("ly.findAgain"), systemImage: "magnifyingglass") }
+                }
+                .disabled(lyricsState == 1 || metadata.title.isEmpty)
+            }
+            if lyricsState == 2 {
+                if let l = lyrics {
+                    Text("\(l.trackName) · \(l.artistName)\(l.albumName.isEmpty ? "" : " · " + l.albumName)  ·  LRCLIB")
+                        .font(.app(.caption)).foregroundStyle(.secondary)
+                    ScrollView {
+                        Text(LyricsService.convert(showSynced ? (l.synced ?? l.plainText) : l.plainText, .auto))
+                            .font(.app(.callout)).textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: 220)
+                    .padding(10)
+                    .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+                    // 匯出完整歌詞
+                    HStack(spacing: 10) {
+                        Button {
+                            LyricsExporter.copy(LyricsService.convert(showSynced ? (l.synced ?? l.plainText) : l.plainText, .auto))
+                            copied = true
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+                        } label: { Label(copied ? t("ly.copied") : t("ly.copy"), systemImage: copied ? "checkmark" : "doc.on.doc") }
+                        Button {
+                            LyricsExporter.save(LyricsExporter.lrc(l, title: metadata.title, artist: metadata.artist, album: metadata.album),
+                                                suggestedName: "\(metadata.artist) - \(metadata.title)", ext: "lrc")
+                        } label: { Label(t("ly.exportLRC"), systemImage: "square.and.arrow.down") }
+                        .disabled((l.synced ?? "").isEmpty)
+                        Button {
+                            LyricsExporter.save(LyricsExporter.txt(l, title: metadata.title, artist: metadata.artist),
+                                                suggestedName: "\(metadata.artist) - \(metadata.title)", ext: "txt")
+                        } label: { Label(t("ly.exportTXT"), systemImage: "doc.text") }
+                        Spacer()
+                    }
+                } else {
+                    Text(t("ly.none")).font(.app(.caption)).foregroundStyle(.secondary)
+                }
+            }
+        }
+        .animation(.snappy(duration: 0.28), value: lyricsState)
+    }
+
+    private func loadLyrics() async {
+        lyricsState = 1
+        lyrics = await LyricsService.find(title: metadata.title, artist: metadata.artist, album: metadata.album, duration: duration)
+        lyricsState = 2
     }
 
     private func suggestionRow(_ s: SongInfo) -> some View {
@@ -698,11 +722,17 @@ struct PlaylistSection: View {
 
             Card(title: t("pl.title"), icon: "list.bullet") {
                 HStack {
-                    Button(t("pl.selectAll")) { for i in tracks.indices { tracks[i].selected = true } }
-                    Button(t("pl.selectNone")) { for i in tracks.indices { tracks[i].selected = false } }
+                    Button { for i in tracks.indices { tracks[i].selected = true } } label: {
+                        Label(t("pl.selectAll"), systemImage: "checkmark.square")
+                    }
+                    Button { for i in tracks.indices { tracks[i].selected = false } } label: {
+                        Label(t("pl.selectNone"), systemImage: "square")
+                    }
                     Spacer()
-                    Button(t("pl.downloadSelected")) { onDownload(tracks.filter(\.selected)) }
-                        .disabled(!tracks.contains(where: \.selected))
+                    Button { onDownload(tracks.filter(\.selected)) } label: {
+                        Label("\(t("pl.downloadSelected")) (\(tracks.filter(\.selected).count))", systemImage: "checkmark.circle")
+                    }
+                    .disabled(!tracks.contains(where: \.selected))
                     Button {
                         onDownload(tracks)
                     } label: { Label(t("pl.downloadAll"), systemImage: "arrow.down.circle.fill") }
@@ -891,10 +921,30 @@ struct SearchResultsSection: View {
 
     private func row(_ r: YTDLP.SearchResult, recommended: Bool) -> some View {
         let theme = AppSettings.shared.theme
+        let preview = AudioPreviewPlayer.shared
+        let isCurrent = preview.isCurrent(r)
         return HStack(spacing: 12) {
             AsyncImage(url: r.thumbnail) { img in img.resizable().scaledToFill() } placeholder: { Color.gray.opacity(0.15) }
                 .frame(width: 120, height: 68)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay {
+                    // 試聽按鈕
+                    Button { preview.toggle(r) } label: {
+                        ZStack {
+                            Circle().fill(.black.opacity(0.55)).frame(width: 36, height: 36)
+                            if isCurrent && preview.state == .loading {
+                                ProgressView().controlSize(.small).tint(.white)
+                            } else {
+                                Image(systemName: isCurrent && preview.state == .playing ? "pause.fill" : "play.fill")
+                                    .font(.system(size: 15, weight: .bold)).foregroundStyle(.white)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(t("search.preview"))
+                }
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(isCurrent ? theme.color : .clear, lineWidth: 2))
                 .overlay(alignment: .bottomTrailing) {
                     if r.duration > 0 {
                         Text(formatDuration(r.duration)).font(.system(size: 10, weight: .semibold).monospacedDigit())
@@ -926,10 +976,10 @@ struct SearchResultsSection: View {
                 Button { onQuickAudio(r) } label: {
                     Label(t("search.quickAudio"), systemImage: "music.note")
                 }
-                .controlSize(.small)
+                .controlSize(.regular)
             }
         }
-        .padding(10)
+        .padding(12)
         .background(recommended ? theme.color.opacity(0.08) : Color.primary.opacity(0.03),
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }

@@ -11,7 +11,7 @@ import AVFoundation
 final class PreviewRenderer {
     enum State: Equatable {
         case idle
-        case fetching            // 下載預覽片段中
+        case fetching(Double)    // 下載預覽片段中（0~1）
         case rendering(Double)   // 套用效果中（0~1）
         case ready(URL)
         case failed(String)
@@ -22,6 +22,8 @@ final class PreviewRenderer {
     private(set) var renderedOptions: DownloadOptions?
     private(set) var clipStart: Double = 0
     private(set) var clipLength: Double = 0
+    /// 去人聲時量到的「左右差異比整體小幾 dB」；越大越接近單聲道
+    private(set) var monoLikeDB: Double?
 
     private var cachedClip: (key: String, file: URL)?
     private var cachedCover: URL?
@@ -70,10 +72,22 @@ final class PreviewRenderer {
             if let c = cachedClip, c.key == key, FileManager.default.fileExists(atPath: c.file.path) {
                 clip = c.file
             } else {
-                state = .fetching
-                clip = try await fetchClip(raw: raw, kind: o.kind, height: fetchHeight, start: start, length: length)
+                state = .fetching(0)
+                clip = try await fetchClip(raw: raw, kind: o.kind, height: fetchHeight, start: start, length: length) { p in
+                    Task { @MainActor in
+                        if gen == self.generation, case .fetching = self.state { self.state = .fetching(p) }
+                    }
+                }
                 guard gen == generation else { return }
                 cachedClip = (key, clip)
+            }
+
+            // 去人聲：先檢查這段錄音是不是幾乎單聲道（那樣去人聲做不出效果）
+            if o.effects.removeVocals {
+                monoLikeDB = await AudioAnalysis.sideToMidDB(clip)
+                guard gen == generation else { return }
+            } else {
+                monoLikeDB = nil
             }
 
             // 2. 套用設定
@@ -94,16 +108,18 @@ final class PreviewRenderer {
         }
     }
 
-    private func fetchClip(raw: [String: Any], kind: MediaKind, height: Int, start: Double, length: Double) async throws -> URL {
+    private func fetchClip(raw: [String: Any], kind: MediaKind, height: Int, start: Double, length: Double,
+                           onProgress: @escaping @Sendable (Double) -> Void) async throws -> URL {
         let json = dir.appendingPathComponent("info-\(UUID().uuidString).json")
         try JSONSerialization.data(withJSONObject: raw).write(to: json)
         defer { try? FileManager.default.removeItem(at: json) }
         let name = "clip-\(UUID().uuidString)"
 
-        var args = ["--no-warnings", "--load-info-json", json.path, "-P", dir.path, "-o", "\(name).%(ext)s",
+        var args = YTDLP.commonArgs + ["--load-info-json", json.path, "-P", dir.path, "-o", "\(name).%(ext)s",
                     "--download-sections", String(format: "*%.2f-%.2f", start, start + length),
-                    "--print", "after_move:@@F %(filepath)s", "--no-mtime"]
-        if !AppSettings.shared.ffmpegPath.isEmpty { args += ["--ffmpeg-location", AppSettings.shared.ffmpegPath] }
+                    "--print", "after_move:@@F %(filepath)s", "--no-mtime",
+                    // 片段由 ffmpeg 下載，讓它回報進度
+                    "--downloader-args", "ffmpeg:-progress pipe:2 -nostats -loglevel error"]
         if kind == .audio {
             args += ["-f", "ba/b"]
         } else {
@@ -112,7 +128,15 @@ final class PreviewRenderer {
         }
         let h = RunningProcess()
         handle = h
-        let r = try await ProcessRunner.stream(YTDLP.exe, args, handle: h) { _, _ in }
+        // 影片要下載影像 + 聲音兩段，各佔一半
+        let parts = kind == .video ? 2.0 : 1.0
+        let counter = PartCounter()
+        let r = try await ProcessRunner.stream(YTDLP.exe, args, handle: h) { line, _ in
+            if line.hasPrefix("out_time_us="), length > 0, let us = Double(line.dropFirst("out_time_us=".count)) {
+                let p = min(1, us / 1_000_000 / length)
+                onProgress(min(1, (counter.update(p) + p) / parts))
+            }
+        }
         if h.isCancelled { throw CancellationError() }
         guard r.status == 0,
               let line = r.stdout.split(separator: "\n").last(where: { $0.hasPrefix("@@F ") }) else {
@@ -202,5 +226,19 @@ final class PreviewRenderer {
         cachedCover = nil
         renderedOptions = nil
         state = .idle
+    }
+}
+
+/// 偵測進度從頭開始（進入下一段）
+private final class PartCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var last: Double = 0
+    private var done: Double = 0
+    /// 回傳已完成的段數
+    func update(_ p: Double) -> Double {
+        lock.lock(); defer { lock.unlock() }
+        if p < last - 0.3 { done += 1 }
+        last = p
+        return done
     }
 }
